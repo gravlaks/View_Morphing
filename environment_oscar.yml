@@ -1,0 +1,20 @@
+name: cs231a-p
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.7
+  - matplotlib
+  - numpy
+  - pip
+  - scipy
+  - pillow
+  - scikit-image
+  - jupyter
+  - opencv
+  - cvxpy
+  - OSQP >= 0.4.1
+  - ECOS >= 2
+  - SCS >= 1.1.6
+  - dlib
+  - imutils
