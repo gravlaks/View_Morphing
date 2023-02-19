@@ -10,12 +10,19 @@ detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("data/shape_predictor_68_face_landmarks.dat")
 
 def homogenize(pt):
+    """
+        Take in x ~ (N, 2)
+        Return  y ~ (N, 3) (an additional column of ones)
+    """
     k = pt.shape[0]
     pt2 = np.ones((k+1,))
     pt2[:k] = pt
     return pt2
 
 def load_mona_lisas():
+    """
+        Load mona lisa, flip it and return noth images + the dimensions
+    """
     # generate left and right facing mona lisa
     mona_1 = cv.imread("data/mona/mona.jpg")
     dims = (mona_1.shape[1], mona_1.shape[0])
@@ -27,13 +34,10 @@ def load_mona_lisas():
 
     return mona_1, mona_2, dims
 
-def load_statues():
-    B23 = cv.imread("data/statue/B23.jpg")
-    B25 = cv.imread("data/statue/B25.jpg")
-    dims = (B23.shape[1], B25.shape[0])
-    return B23, B25, dims
-
 def find_face(im):
+    """
+        Take an image containing 1 face and return the pixel location of 68 facial features
+    """
     rects = detector(im, 1)
     for rect in rects:
         landmarks = predictor(im, rect)
@@ -44,6 +48,9 @@ def find_face(im):
     return pts
 
 def rotvec(u, theta):
+    """
+        Find the 3x3 rotatino matrix which rotates a vector theta radians around the point u
+    """
     c = np.cos(theta)
     s = np.sin(theta)
     t = 1 - np.cos(theta)
@@ -54,6 +61,9 @@ def rotvec(u, theta):
                     [-s*y, s*x, c]])
 
 def rot_z(theta):
+    """
+        Rotation matrix about the z axis
+    """
     c = np.cos(theta)
     s = np.sin(theta)
     return np.array([
@@ -63,10 +73,16 @@ def rot_z(theta):
     ])
 
 def get_fundamental(pts_1, pts_2):
+    """
+        Fun wrapper !!
+    """
     F, _ = cv.findFundamentalMat(pts_1, pts_2)
     return F
 
 def get_homographies(F):
+    """
+        Implement the homographies method presented in the original view morph paper
+    """
     e_1 = p2.compute_epipole(F.T)
     e_1 /= np.linalg.norm(e_1)
     e_2 = p2.compute_epipole(F)
@@ -110,6 +126,9 @@ def apply_perspective(H, x):
     return y / y[:,2].reshape((-1, 1))
 
 def get_framed_homographies(F, f_1, f_2, dims):
+    """
+        Same as the homographies matrix except the images are guaranteed to not blow up in size or clip
+    """
     H_1, H_2 = get_homographies(F)
 
     f = np.vstack([

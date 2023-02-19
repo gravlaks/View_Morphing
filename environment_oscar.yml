@@ -18,3 +18,4 @@ dependencies:
   - SCS >= 1.1.6
   - dlib
   - imutils
+  - regex

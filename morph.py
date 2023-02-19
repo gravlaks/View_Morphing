@@ -77,4 +77,4 @@ for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
 
 # draw the final image
 I_s = cv.warpPerspective(I_s, H_s, dim_1)
-cv.imwrite(f'mona{s}.jpg', I_s)
+cv.imwrite(f'output/mona{s}.jpg', I_s)
