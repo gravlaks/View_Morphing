@@ -3,8 +3,11 @@ import numpy as np
 import cv2 as cv
 import cvxpy as cp
 import dlib
+import matplotlib.pyplot as plt
 from imutils import face_utils
 from HW import p2
+from utils import *
+
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("data/shape_predictor_68_face_landmarks.dat")
@@ -24,15 +27,23 @@ def load_mona_lisas():
         Load mona lisa, flip it and return noth images + the dimensions
     """
     # generate left and right facing mona lisa
-    mona_1 = cv.imread("data/torstein/left.jpg")
+    mona_1 = cv.imread("data/torstein/front.jpg") #add for epiline plot cv.IMREAD_GRAYSCALE
     dims = (mona_1.shape[1], mona_1.shape[0])
-    print("dims", dims)
+    # print("dims", dims)
     
 
-    mona_2 = cv.imread("data/torstein/right.jpg")
+    # mona_2 = cv.imread("data/torstein/right.jpg")
 
 
-    scale_percent = 30 # percent of original size
+
+    # F = np.eye(3)
+    # F[0, 0] = -1
+    # F[0, 2] = dims[0]
+    # #mona_2 = cv.warpPerspective(mona_1, F, dims)
+    mona_1 = cv.imread("data/torstein/front.jpg") #add for epiline plot cv.IMREAD_GRAYSCALE
+    mona_2 = cv.imread("data/torstein/left.jpg") #add for epiline plot cv.IMREAD_GRAYSCALE
+    dims = (mona_1.shape[1], mona_1.shape[0])
+    scale_percent = 10 # percent of original size
     width = int(dims[0] * scale_percent / 100)
     height = int(dims[1]* scale_percent / 100)
     dims = (width, height)
@@ -40,11 +51,6 @@ def load_mona_lisas():
     # resize image
     mona_1 = cv.resize(mona_1, dims, interpolation = cv.INTER_AREA)
     mona_2 = cv.resize(mona_2, dims, interpolation = cv.INTER_AREA)
-    F = np.eye(3)
-    F[0, 0] = -1
-    F[0, 2] = dims[0]
-    #mona_2 = cv.warpPerspective(mona_1, F, dims)
-
     return mona_1, mona_2, dims
 
 def find_face(im):
@@ -62,7 +68,7 @@ def find_face(im):
 
 def rotvec(u, theta):
     """
-        Find the 3x3 rotatino matrix which rotates a vector theta radians around the point u
+        Find the 3x3 rotation matrix which rotates a vector theta radians around the point u
     """
     c = np.cos(theta)
     s = np.sin(theta)
@@ -150,16 +156,35 @@ def apply_perspective(H, x):
     y = np.einsum('ij,lj->li', H, x)
     return y / y[:,2].reshape((-1, 1))
 
-def get_framed_homographies(F, f_1, f_2, dims):
+def plot_epi_lines(img1, img2, pts1, pts2, F):
+    lines1 = cv.computeCorrespondEpilines(pts2.reshape(-1, 1, 2), 2, F)
+    lines1 = lines1.reshape(-1, 3)
+    img5, img6 = drawlines(img1, img2, lines1, pts1, pts2)
+    # Find epilines corresponding to points in left image (first image) and
+    # drawing its lines on right image
+    lines2 = cv.computeCorrespondEpilines(pts1.reshape(-1, 1, 2), 1, F)
+    lines2 = lines2.reshape(-1, 3)
+    img3, img4 = drawlines(img2, img1, lines2, pts2, pts1)
+    plt.subplot(121), plt.imshow(img5)
+    plt.subplot(122), plt.imshow(img3)
+    plt.show()
+
+
+def get_framed_homographies(F, f_1, f_2, dims, openCVprewarp=True):
     """
         Same as the homographies matrix except the images are guaranteed to not blow up in size or clip
     """
-    H_1, H_2 = get_homographies(F)
-
-    f = np.vstack([
-        apply_perspective(np.linalg.inv(H_1), f_1),
-        apply_perspective(np.linalg.inv(H_2), f_2),
-    ])[:, :2]
+    if openCVprewarp == False:
+        H_1, H_2 = get_homographies(F)
+        f = np.vstack([
+            apply_perspective(np.linalg.inv(H_1), f_1),
+            apply_perspective(np.linalg.inv(H_2), f_2),
+        ])[:, :2]
+    else:
+        H_1, status = cv.findHomography(f_1, f_2)
+        f = np.vstack([
+            apply_perspective(np.linalg.inv(H_1), f_1)
+        ])[:, :2]
 
     x_min = np.min(f[:,0]) / (2 * dims[0])
     x_max = np.max(f[:,0]) / (2 * dims[0])
@@ -177,5 +202,8 @@ def get_framed_homographies(F, f_1, f_2, dims):
 
     T = np.linalg.inv(T)
 
-    return H_1 @ T, H_2 @ T, dims
-
+    if openCVprewarp == False:
+        #is this really correct?
+        return H_1 @ T, H_2 @ T, dims
+    else:
+        return H_1, dims
