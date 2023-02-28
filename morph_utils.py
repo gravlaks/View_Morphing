@@ -24,13 +24,26 @@ def load_mona_lisas():
         Load mona lisa, flip it and return noth images + the dimensions
     """
     # generate left and right facing mona lisa
-    mona_1 = cv.imread("data/mona/mona.jpg")
+    mona_1 = cv.imread("data/torstein/left.jpg")
     dims = (mona_1.shape[1], mona_1.shape[0])
+    print("dims", dims)
+    
 
+    mona_2 = cv.imread("data/torstein/right.jpg")
+
+
+    scale_percent = 30 # percent of original size
+    width = int(dims[0] * scale_percent / 100)
+    height = int(dims[1]* scale_percent / 100)
+    dims = (width, height)
+    print()
+    # resize image
+    mona_1 = cv.resize(mona_1, dims, interpolation = cv.INTER_AREA)
+    mona_2 = cv.resize(mona_2, dims, interpolation = cv.INTER_AREA)
     F = np.eye(3)
     F[0, 0] = -1
     F[0, 2] = dims[0]
-    mona_2 = cv.warpPerspective(mona_1, F, dims)
+    #mona_2 = cv.warpPerspective(mona_1, F, dims)
 
     return mona_1, mona_2, dims
 
@@ -77,6 +90,18 @@ def get_fundamental(pts_1, pts_2):
         Fun wrapper !!
     """
     F, _ = cv.findFundamentalMat(pts_1, pts_2)
+    return F
+
+
+def get_fundamental_calib(pts_1, pts_2):
+    """
+        Fun wrapper !!
+    """
+    K = np.load("data/calibration/K.pkl.npy")
+
+    ## Undistort 
+    E, _ = cv.findEssentialMat(pts_1[:, :2], pts_2[:, :2], K, method=cv.RANSAC)
+    F = np.linalg.inv(K.T)@E@np.linalg.inv(K)
     return F
 
 def get_homographies(F):
