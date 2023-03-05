@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from imutils import face_utils
 from HW import p2
 from utils import *
+import json
 
 
 detector = dlib.get_frontal_face_detector()
@@ -21,6 +22,24 @@ def homogenize(pt):
     pt2 = np.ones((k+1,))
     pt2[:k] = pt
     return pt2
+
+def load_manual():
+    """
+    load manually labeled images, shared keys and non-shared keys
+    """
+    data = json.loads(open('data/manual.json').read())
+    path_1 = data[0]['path']
+    yshared_1 = data[0]['shared_keys']
+    nshared_1 = data[0]['non_shared_keys']
+    path_2 = data[1]['path']
+    yshared_2 = data[1]['shared_keys']
+    nshared_2 = data[1]['non_shared_keys']
+
+    I_1 = cv.imread(path_1)
+    I_2 = cv.imread(path_2)
+    dims = (I_1.shape[1], I_1.shape[0])
+
+    return I_1, np.array(yshared_1), np.array(nshared_1), I_2, np.array(yshared_2), np.array(nshared_2), dims
 
 def load_mona_lisas():
     """

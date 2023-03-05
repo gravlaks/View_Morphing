@@ -1,90 +1,103 @@
 import cv2
+import json
+import numpy as np
 
+random_color = lambda: tuple(map(int, 255 * np.random.random(3)))
 
-coordinates = []
-coordinates2 = []
+clicked = False
+color = random_color()
+size = 20
+yshared_coordinates_1 = []
+nshared_coordinates_1 = []
+yshared_coordinates_2 = []
+nshared_coordinates_2 = []
 
-def click_event(event, x, y, flags, params):
+def click_event_1(event, x, y, flags, params):
     # checking for left mouse clicks
+    global img_1, clicked, color, size, nshared_coordinates_1, yshared_coordinates_1
 
+    if event == cv2.EVENT_RBUTTONDOWN:
+        img_1 = cv2.circle(img_1, [x,y], size, (255, 255, 255), -1)
+        nshared_coordinates_1 += [ (x, y) ]
+        clicked = True
     if event == cv2.EVENT_LBUTTONDOWN:
-        # displaying the coordinates
-        # on the Shell
-        i = ''
-        print(x, ' ', y)
+        img_1 = cv2.circle(img_1, [x,y], size, color, -1)
+        yshared_coordinates_1 += [ (x, y) ]
+        clicked = True
 
-        # displaying the coordinates
-        # on the image window
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(img, str(i), (x, y), font,
-                    0.4, (255, 0, 0), 1)
-        cv2.circle(img, [x,y], 2, (0, 0, 255))
-        coordinates.append((str(x) + ' ' + str(y)))
-        cv2.imshow('image', img)
-
-def click_event2(event, x, y, flags, params):
+def click_event_2(event, x, y, flags, params):
     # checking for left mouse clicks
+    global img_2, clicked, color, size, nshared_coordinates_2, yshared_coordinates_2
 
+    if event == cv2.EVENT_RBUTTONDOWN:
+        img_2 = cv2.circle(img_2, [x,y], size, (255, 255, 255), -1)
+        nshared_coordinates_2 += [ (x, y) ]
+        clicked = True
     if event == cv2.EVENT_LBUTTONDOWN:
-        # displaying the coordinates
-        # on the Shell
-        i = ''
-        print(x, ' ', y)
+        img_2 = cv2.circle(img_2, [x,y], size, color, -1)
+        yshared_coordinates_2 += [ (x, y) ]
+        clicked = True
 
-        # displaying the coordinates
-        # on the image window
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(img2, str(i), (x, y), font,
-                    0.4, (255, 0, 0), 1)
-        cv2.circle(img2, [x,y], 2, (0, 0, 255))
-        coordinates2.append((str(x) + ' ' + str(y)))
-        cv2.imshow('image2', img2)
-
+"""
+    !!! READ 
+    This program will alternate between two images (image_1, image_2).
+    You will select a shared keypoint (left click) or a keypoint not viewable from the the other image (right click)
+    You may quit the program by pressing any key while viewing the first image.
+    The labels will be saved to data/manual.json
+"""
 
 # driver function
 if __name__ == "__main__":
     # reading the image
-    img = cv2.imread('data/h_h.jpg', 1)
-    img2 = cv2.imread('data/h_v.jpg', 1)
+    image_1 = 'data/torstein/left.jpg'
+    image_2 = 'data/torstein/right.jpg'
+    img_1 = cv2.imread(image_1, 1)
+    img_2 = cv2.imread(image_2, 1)
 
     # displaying the image
+    finished_labeling = False
 
+    while True:
+        color = random_color()
+        cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+        cv2.imshow('image', img_1)
+        cv2.resizeWindow('image', 512, 512)
+        cv2.setMouseCallback('image', click_event_1)
 
-    cv2.namedWindow("image", cv2.WINDOW_NORMAL)
+        while not clicked:
+            key = cv2.waitKey(10)
+            if key != -1:
+                finished_labeling = True
+                break
 
-    cv2.namedWindow("image2", cv2.WINDOW_NORMAL)
+        if finished_labeling:
+            break
 
-    screen_res = 2160, 1440
-    scale_width = screen_res[0] / img.shape[1]
-    scale_height = screen_res[1] / img.shape[0]
-    scale = min(scale_width, scale_height)
-    #resized window width and height
-    window_width = int(img.shape[1] * scale)
-    window_height = int(img.shape[0] * scale)
+        cv2.destroyAllWindows()
+        clicked = False
 
-    #cv2.resizeWindow('image', window_width, window_height)
-    #cv2.resizeWindow('image2', window_width, window_height)
-
-
-    cv2.imshow('image', img)
-
-    cv2.imshow('image2', img2)
-
-    cv2.setMouseCallback('image', click_event)
-    cv2.setMouseCallback('image2', click_event2)
-
-    # wait for a key to be pressed to exit
-    cv2.waitKey(0)
-
-    with open('coordinates.txt', 'w') as f:
-        for coord in coordinates:
-            f.write(coord)
-            f.write('\n')
-
-    with open('coordinates2.txt', 'w') as f:
-        for coord in coordinates2:
-            f.write(coord)
-            f.write('\n')
-
-    # close the window
+        cv2.namedWindow('image2', cv2.WINDOW_NORMAL)
+        cv2.imshow('image2', img_2)
+        cv2.resizeWindow('image2', 512, 512)
+        cv2.setMouseCallback('image2', click_event_2)
+        while not clicked:
+            cv2.waitKey(10)
+        cv2.destroyAllWindows()
+        clicked = False
     cv2.destroyAllWindows()
+
+    print(f"Saving labeling with {len(yshared_coordinates_1)} shared keys and {len(nshared_coordinates_1)} non-shared keys to data/manual.json")
+
+    data = [
+        {
+            "path" : image_1,
+            "shared_keys" : yshared_coordinates_1,
+            "non_shared_keys" : nshared_coordinates_1,
+        },
+        {
+            "path" : image_2,
+            "shared_keys" : yshared_coordinates_2,
+            "non_shared_keys" : nshared_coordinates_2,
+        }
+    ]
+    json.dump(data, open('data/manual.json', 'w'))
