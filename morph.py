@@ -9,6 +9,8 @@ from tqdm import tqdm
 def generate_manual(s = 0.5, use_prewarp = False, save = True, calibrated = False):
     # load images
     I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual()
+    f_1 = homogenize_array(f_1)
+    f_2 = homogenize_array(f_2)
 
     f_count = len(f_1)
 
@@ -19,7 +21,6 @@ def generate_manual(s = 0.5, use_prewarp = False, save = True, calibrated = Fals
         [ 0, dim[1], 1 ],
         [ dim[0], dim[1], 1 ],
     ])
-    f_1, f_2 = find_face(I_1), find_face(I_2)
     
     if calibrated:
         F = get_fundamental_calib(f_1, f_2)
@@ -33,15 +34,18 @@ def generate_manual(s = 0.5, use_prewarp = False, save = True, calibrated = Fals
     delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
 
     # Find homographies, new image dimension (larger)
-    H_1, H_2, dim_2 = get_framed_homographies(F, f_1, f_2, dim, openCVprewarp=False)
-
-    Hi_1 = np.linalg.inv(H_1)
-    Hi_2 = np.linalg.inv(H_2)
+    dim_2 = dim
 
     # Transform images and features
     if use_prewarp:
+        H_1, H_2, dim_2 = get_framed_homographies(F, f_1, f_2, dim, openCVprewarp=False)
+
+        Hi_1 = np.linalg.inv(H_1)
+        Hi_2 = np.linalg.inv(H_2)
+
         I_1 = cv.warpPerspective(I_1, Hi_1, dim_2)
         I_2 = cv.warpPerspective(I_2, Hi_2, dim_2)
+
         f_1 = apply_perspective(Hi_1, f_1)
         f_2 = apply_perspective(Hi_2, f_2)
     else:
@@ -60,8 +64,7 @@ def generate_manual(s = 0.5, use_prewarp = False, save = True, calibrated = Fals
     local_mask = 0 * I_1.copy()
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
-        if np.any(t_i > f_count):
-            # do not include background
+        if any(t_i > f_count - 1):
             continue
 
         # find the affine transformations which send the triangles in each image to the composed location
@@ -83,7 +86,7 @@ def generate_manual(s = 0.5, use_prewarp = False, save = True, calibrated = Fals
     # draw the final image
     I_s = cv.warpPerspective(I_s, H_s, dim)
     if save:
-        cv.imwrite(f'output/mona{s:.2f}.jpg', I_s)
+        cv.imwrite(f'output/manual{s:.2f}.jpg', I_s)
 
     return I_s.copy()
 
@@ -276,13 +279,10 @@ if __name__ == '__main__':
         frames += [ generate_mona(s, use_prewarp = False, save = False, calibrated=False) ]
     frames += frames[::-1]
     '''
-    generate_manual()
     #frame = generate_warping(0.5, use_prewarp=True)
-    '''
     frames = []
-    for s in np.linspace(0.1, 0.9, 11):
-        frames += [generate_warping(s, use_prewarp=True, save=False)]
+    for s in tqdm(np.linspace(0.1, 0.9, 11)):
+        frames += [ generate_manual(s, use_prewarp=False, save=False) ]
     frames += frames[::-1]
     
-    utils.create_gif('output/image.gif', frames)
-    '''
+    utils.create_gif('output/manual.gif', frames)

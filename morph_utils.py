@@ -13,6 +13,16 @@ import json
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("data/shape_predictor_68_face_landmarks.dat")
 
+def homogenize_array(pt):
+    """
+        Take in x ~ (N, 2)
+        Return  y ~ (N, 3) (an additional column of ones)
+    """
+    k = pt.shape[0]
+    pt2 = np.ones((k,3))
+    pt2[:,:2] = pt
+    return pt2
+
 def homogenize(pt):
     """
         Take in x ~ (N, 2)
