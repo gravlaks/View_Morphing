@@ -51,6 +51,12 @@ def find_face(im):
 
     return pts
 
+def plot_landmarks(img, landmarks):
+    for landmark in landmarks:
+        img = cv.circle(img, [int(landmark[0]), int(landmark[1])], 5, (255,0,0))
+    plt.imshow(img)
+    plt.show()
+
 def rotvec(u, theta):
     """
         Find the 3x3 rotation matrix which rotates a vector theta radians around the point u

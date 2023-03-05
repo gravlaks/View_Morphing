@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 from morph_utils import*
 import scipy.spatial
@@ -95,6 +96,18 @@ def generate_warping(s = 0.5, use_prewarp = True, save = True):
         [ dim_1[0], dim_1[1], 1 ],
     ])
     f_1, f_2 = find_face(I_1), find_face(I_2)
+    #print(f_1)
+
+    #use this if you want to use manual labeling
+    '''
+    f_1 = np.loadtxt("coordinates.txt", dtype=int)
+    f_2 = np.loadtxt("coordinates2.txt", dtype=int)
+
+    f_1 = np.hstack((f_1, np.ones((f_1.shape[0],1))))
+    f_2 = np.hstack((f_2, np.ones((f_2.shape[0], 1))))
+    '''
+    #plot_landmarks(I_1, f_1)
+    #plot_landmarks(I_2, f_2)
 
     F = get_fundamental(f_1, f_2)
 
