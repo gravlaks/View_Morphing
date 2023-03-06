@@ -2,8 +2,15 @@ import cv2
 import json
 import numpy as np
 
-random_color = lambda: tuple(map(int, 255 * np.random.random(3)))
+"""
+    !!! READ 
+    This program will alternate between two images (image_1, image_2).
+    You will select a shared keypoint (left click) or a keypoint not viewable from the the other image (right click)
+    You may quit the program by pressing any key while viewing the first image.
+    The labels will be saved to data/manual.json
+"""
 
+random_color = lambda: tuple(map(int, 255 * np.random.random(3)))
 clicked = False
 color = random_color()
 size = 20
@@ -11,9 +18,9 @@ yshared_coordinates_1 = []
 nshared_coordinates_1 = []
 yshared_coordinates_2 = []
 nshared_coordinates_2 = []
+W = 1024
 
 def click_event_1(event, x, y, flags, params):
-    # checking for left mouse clicks
     global img_1, clicked, color, size, nshared_coordinates_1, yshared_coordinates_1
 
     if event == cv2.EVENT_RBUTTONDOWN:
@@ -26,7 +33,6 @@ def click_event_1(event, x, y, flags, params):
         clicked = True
 
 def click_event_2(event, x, y, flags, params):
-    # checking for left mouse clicks
     global img_2, clicked, color, size, nshared_coordinates_2, yshared_coordinates_2
 
     if event == cv2.EVENT_RBUTTONDOWN:
@@ -37,14 +43,6 @@ def click_event_2(event, x, y, flags, params):
         img_2 = cv2.circle(img_2, [x,y], size, color, -1)
         yshared_coordinates_2 += [ (x, y) ]
         clicked = True
-
-"""
-    !!! READ 
-    This program will alternate between two images (image_1, image_2).
-    You will select a shared keypoint (left click) or a keypoint not viewable from the the other image (right click)
-    You may quit the program by pressing any key while viewing the first image.
-    The labels will be saved to data/manual.json
-"""
 
 # driver function
 if __name__ == "__main__":
@@ -61,7 +59,8 @@ if __name__ == "__main__":
         color = random_color()
         cv2.namedWindow('image', cv2.WINDOW_NORMAL)
         cv2.imshow('image', img_1)
-        cv2.resizeWindow('image', 512, 512)
+        cv2.moveWindow('image', 100, 100)
+        cv2.resizeWindow('image', W, W)
         cv2.setMouseCallback('image', click_event_1)
 
         while not clicked:
@@ -78,7 +77,8 @@ if __name__ == "__main__":
 
         cv2.namedWindow('image2', cv2.WINDOW_NORMAL)
         cv2.imshow('image2', img_2)
-        cv2.resizeWindow('image2', 512, 512)
+        cv2.moveWindow('image2', 100, 100)
+        cv2.resizeWindow('image2', W, W)
         cv2.setMouseCallback('image2', click_event_2)
         while not clicked:
             cv2.waitKey(10)

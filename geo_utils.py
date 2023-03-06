@@ -40,6 +40,8 @@ def plot_tris_3d(pts_3d, tris):
     """
     fig = get_unique_fig()
     ax = fig.add_subplot(1, 1, 1, projection='3d')
+    x_min = np.min(pts_3d[:,:])
+    x_max = np.max(pts_3d[:,:])
     for i, j, k in tris:
         tri = np.array([i, j, k, i])
         trip = pts_3d[tri]

@@ -33,10 +33,11 @@ def homogenize(pt):
     pt2[:k] = pt
     return pt2
 
-def load_manual():
+def load_manual(scale = 1):
     """
     load manually labeled images, shared keys and non-shared keys
     """
+    # load manual data
     data = json.loads(open('data/manual.json').read())
     path_1 = data[0]['path']
     yshared_1 = data[0]['shared_keys']
@@ -45,11 +46,21 @@ def load_manual():
     yshared_2 = data[1]['shared_keys']
     nshared_2 = data[1]['non_shared_keys']
 
+    # load images
     I_1 = cv.imread(path_1)
     I_2 = cv.imread(path_2)
-    dims = (I_1.shape[1], I_1.shape[0])
 
-    return I_1, np.array(yshared_1), np.array(nshared_1), I_2, np.array(yshared_2), np.array(nshared_2), dims
+    # rescale
+    dims = (round(scale * I_1.shape[1]), round(scale * I_1.shape[0]))
+    I_1 = cv.resize(I_1, dims)
+    I_2 = cv.resize(I_2, dims)
+
+    yshared_1 = np.round(scale * np.array(yshared_1))
+    nshared_1 = np.round(scale * np.array(nshared_1))
+    yshared_2 = np.round(scale * np.array(yshared_2))
+    nshared_2 = np.round(scale * np.array(nshared_2))
+
+    return I_1, yshared_1, nshared_1, I_2, yshared_2, nshared_2, dims
 
 def load_mona_lisas():
     """
@@ -133,6 +144,11 @@ def get_fundamental(pts_1, pts_2):
     F, _ = cv.findFundamentalMat(pts_1, pts_2)
     return F
 
+def get_calibration(pts_1, pts_2):
+    K = np.load("data/calibration/K.pkl.npy")
+
+    E, _ = cv.findEssentialMat(pts_1[:, :2], pts_2[:, :2], K, method=cv.RANSAC)
+    return E, K
 
 def get_fundamental_calib(pts_1, pts_2):
     """
@@ -142,7 +158,7 @@ def get_fundamental_calib(pts_1, pts_2):
 
     ## Undistort 
     E, _ = cv.findEssentialMat(pts_1[:, :2], pts_2[:, :2], K, method=cv.RANSAC)
-    F = np.linalg.inv(K.T)@E@np.linalg.inv(K)
+    F = np.linalg.inv(K.T) @ E @ np.linalg.inv(K)
     return F
 
 def get_homographies(F):
@@ -203,7 +219,6 @@ def plot_epi_lines(img1, img2, pts1, pts2, F):
     plt.subplot(121), plt.imshow(img5)
     plt.subplot(122), plt.imshow(img3)
     plt.show()
-
 
 def get_framed_homographies(F, f_1, f_2, dims, openCVprewarp=True):
     """
