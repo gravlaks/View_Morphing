@@ -7,10 +7,21 @@ import matplotlib.pyplot as plt
 from imutils import face_utils
 from HW import p2
 from utils import *
+import json
 
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("data/shape_predictor_68_face_landmarks.dat")
+
+def homogenize_array(pt):
+    """
+        Take in x ~ (N, 2)
+        Return  y ~ (N, 3) (an additional column of ones)
+    """
+    k = pt.shape[0]
+    pt2 = np.ones((k,3))
+    pt2[:,:2] = pt
+    return pt2
 
 def homogenize(pt):
     """
@@ -21,6 +32,35 @@ def homogenize(pt):
     pt2 = np.ones((k+1,))
     pt2[:k] = pt
     return pt2
+
+def load_manual(scale = 1):
+    """
+    load manually labeled images, shared keys and non-shared keys
+    """
+    # load manual data
+    data = json.loads(open('data/manual.json').read())
+    path_1 = data[0]['path']
+    yshared_1 = data[0]['shared_keys']
+    nshared_1 = data[0]['non_shared_keys']
+    path_2 = data[1]['path']
+    yshared_2 = data[1]['shared_keys']
+    nshared_2 = data[1]['non_shared_keys']
+
+    # load images
+    I_1 = cv.imread(path_1)
+    I_2 = cv.imread(path_2)
+
+    # rescale
+    dims = (round(scale * I_1.shape[1]), round(scale * I_1.shape[0]))
+    I_1 = cv.resize(I_1, dims)
+    I_2 = cv.resize(I_2, dims)
+
+    yshared_1 = np.round(scale * np.array(yshared_1))
+    nshared_1 = np.round(scale * np.array(nshared_1))
+    yshared_2 = np.round(scale * np.array(yshared_2))
+    nshared_2 = np.round(scale * np.array(nshared_2))
+
+    return I_1, yshared_1, nshared_1, I_2, yshared_2, nshared_2, dims
 
 def load_mona_lisas():
     """
@@ -66,6 +106,12 @@ def find_face(im):
 
     return pts
 
+def plot_landmarks(img, landmarks):
+    for landmark in landmarks:
+        img = cv.circle(img, [int(landmark[0]), int(landmark[1])], 5, (255,0,0))
+    plt.imshow(img)
+    plt.show()
+
 def rotvec(u, theta):
     """
         Find the 3x3 rotation matrix which rotates a vector theta radians around the point u
@@ -98,6 +144,11 @@ def get_fundamental(pts_1, pts_2):
     F, _ = cv.findFundamentalMat(pts_1, pts_2)
     return F
 
+def get_calibration(pts_1, pts_2):
+    K = np.load("data/calibration/K.pkl.npy")
+
+    E, _ = cv.findEssentialMat(pts_1[:, :2], pts_2[:, :2], K, method=cv.RANSAC)
+    return E, K
 
 def get_fundamental_calib(pts_1, pts_2):
     """
@@ -174,7 +225,6 @@ def plot_epi_lines(img1, img2, pts1, pts2, F):
     plt.subplot(121), plt.imshow(img5)
     plt.subplot(122), plt.imshow(img3)
     plt.show()
-
 
 def get_framed_homographies(F, f_1, f_2, dims, openCVprewarp=True):
     """
