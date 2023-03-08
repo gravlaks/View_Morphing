@@ -5,7 +5,7 @@ import scipy.spatial
 import utils
 from tqdm import tqdm
 
-def generate_mona(s = 0.5, use_prewarp = True, save = True, calibrated = False):
+def generate_mona(s = 0.5, use_prewarp = True, save = True, calibrated = True):
     # load images
     I_1, I_2, dim_1 = load_mona_lisas()
 
@@ -94,7 +94,7 @@ def generate_mona(s = 0.5, use_prewarp = True, save = True, calibrated = False):
         cv.imwrite(f'output/mona{s:.2f}.jpg', I_s)
     return I_s.copy()
 
-def generate_warping(s = 0.5, use_prewarp = True, save = True):
+def generate_warping(s = 0.5, use_prewarp = True, save = True, calib=False):
     # load images
     I_1, I_2, dim_1 = load_mona_lisas()
 
@@ -107,8 +107,10 @@ def generate_warping(s = 0.5, use_prewarp = True, save = True):
     ])
     f_1, f_2 = find_face(I_1), find_face(I_2)
 
-    F = get_fundamental(f_1, f_2)
-
+    if calib:
+        F = get_fundamental_calib(f_1, f_2)
+    else:
+        F = get_fundamental(f_1, f_2)
     f_1 = np.vstack([ f_1, f_0 ])
     f_2 = np.vstack([ f_2, f_0 ])
 
@@ -184,7 +186,7 @@ if __name__ == '__main__':
         frames += [ generate_mona(s, use_prewarp = False, save = False, calibrated=False) ]
     frames += frames[::-1]
     '''
-    frame = generate_warping(0.5, use_prewarp=True)
+    frame = generate_warping(0.5, use_prewarp=True, calib=True)
     '''
     frames = []
     for s in np.linspace(0.1, 0.9, 11):

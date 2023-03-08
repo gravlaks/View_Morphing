@@ -103,10 +103,16 @@ def get_fundamental_calib(pts_1, pts_2):
     """
         Fun wrapper !!
     """
+    N = len(pts_1)
     K = np.load("data/calibration/K.pkl.npy")
-
+    dist = np.load("data/calibration/dist.pkl.npy")
     ## Undistort 
-    E, _ = cv.findEssentialMat(pts_1[:, :2], pts_2[:, :2], K, method=cv.RANSAC)
+    pts_dist = np.vstack((pts_1, pts_2)).T
+    pts_undist = cv.undistortPoints(pts_dist[:2], K, dist).reshape((-1, 2))
+    pts_1_undist = pts_undist[:N]
+    pts_2_undist = pts_undist[N:]
+
+    E, _ = cv.findEssentialMat(pts_1_undist, pts_2_undist, K, method=cv.RANSAC)
     F = np.linalg.inv(K.T)@E@np.linalg.inv(K)
     return F
 
