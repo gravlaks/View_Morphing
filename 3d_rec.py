@@ -150,7 +150,7 @@ def get_projection_matrices(p_1, p_2, E, K):
     tally = np.zeros(4)
     for k, T_alt in enumerate(T_list):
         M_alt = K @ T_alt
-        P_1 = estimate_3d_nonlinear(M_def, p_1, M_alt, p_2)
+        P_1 = estimate_3d_linear(M_def, p_1, M_alt, p_2)
         T = np.zeros((4,4))
         T[:3, :4] = T_alt
         T[3,3] = 1
@@ -164,7 +164,7 @@ def get_projection_matrices(p_1, p_2, E, K):
 
 def generate_manual(s = 0.5, scale = 1, save = True):
     # load images
-    I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale = scale)
+    I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual()
     f_1 = homogenize_array(f_1)
     f_2 = homogenize_array(f_2)
 
@@ -176,7 +176,7 @@ def generate_manual(s = 0.5, scale = 1, save = True):
     # attempt 3d reconstruction of face
     E, K = get_calibration(f_1, f_2)
     M_1, M_2 = get_projection_matrices(f_1, f_2, E, K)
-    P = estimate_3d_nonlinear(M_1, f_1, M_2, f_2)
+    P = estimate_3d_linear(M_1, f_1, M_2, f_2)
     geo_utils.plot_tris_3d(P, delu)
     plt.show() # fail :((
 
