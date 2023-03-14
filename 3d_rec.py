@@ -19,148 +19,177 @@ def apply_projection(A, x):
     y = np.einsum('ij,nj->ni', A, x)
     return y / y[:, 2].reshape((-1, 1))
 
-def estimate_3d_linear(M_1, p_1, M_2, p_2):
-    """
-        in :
-            M_1 ~ (3, 4) - projection matrix of image 1
-            p_1 ~ (N, 3) - homogenous 2d points from image 1
-            M_2 ~ (3, 4) - projection matrix of image 2
-            p_2 ~ (N, 3) - homogenous 2d points from image 2
-        out :
-            P   ~ (N, 4) - homogenous 3d points
-    """
-    N = p_1.shape[0]
-    A = np.zeros((4, 4))
-    P = np.zeros((N, 4))
-
-    for k, p, q in zip(count(0), p_1, p_2):
-        A[:, 0] = M_1[0,:] - p[0] * M_1[2,:]
-        A[:, 1] = M_1[1,:] - p[1] * M_1[2,:]
-        A[:, 2] = M_2[0,:] - q[0] * M_2[2,:]
-        A[:, 3] = M_2[1,:] - q[1] * M_2[2,:]
-
-        _, _, VT = np.linalg.svd(A)
-        P[k, :] = VT[-1, :] / VT[-1, 3]
-
-    return P
-
-def reprojection_error(P, M_1, p_1, M_2, p_2):
-    """
-        in :
-            P   ~ (N, 4) - homogenous 3d points
-            M_1 ~ (3, 4) - projection matrix of image 1
-            p_1 ~ (N, 3) - homogenous 2d points from image 1
-            M_2 ~ (3, 4) - projection matrix of image 2
-            p_2 ~ (N, 3) - homogenous 2d points from image 2
-        out :
-            e   ~ (N,4) - L2 error vector ([[e1x_1,e1y_1,e2x_1,e2y_1], ..., [e1x_n,e1y_n,e2x_n,e2y_n])
-    """
-    N = P.shape[0]
-    e = np.zeros((N,4))
-    e[:,:2] = (p_1 - apply_projection(M_1, P))[:,:2]
-    e[:,2:] = (p_2 - apply_projection(M_2, P))[:,:2]
-    return e
-
-def jacobian(P, M_1, p_1, M_2, p_2):
-    """
-        in :
-            P   ~ (N, 4) - homogenous 3d points
-            M_1 ~ (3, 4) - projection matrix of image 1
-            p_1 ~ (N, 3) - homogenous 2d points from image 1
-            M_2 ~ (3, 4) - projection matrix of image 2
-            p_2 ~ (N, 3) - homogenous 2d points from image 2
-        out :
-            J   ~ (N, 4, 3) - jacobian
-    """
-    N = P.shape[0]
-    J = np.zeros((N,4,4))
-
-    for k, Q in enumerate(P):
-        J[k,0,:] = ((M_1[0,:].T @ Q) * M_1[2,:] - (M_1[2,:].T @ Q) * M_1[0,:]) / (M_1[2,:].T @ Q)**2
-        J[k,1,:] = ((M_1[1,:].T @ Q) * M_1[2,:] - (M_1[2,:].T @ Q) * M_1[1,:]) / (M_1[2,:].T @ Q)**2
-        J[k,2,:] = ((M_2[0,:].T @ Q) * M_2[2,:] - (M_2[2,:].T @ Q) * M_2[0,:]) / (M_2[2,:].T @ Q)**2
-        J[k,3,:] = ((M_2[1,:].T @ Q) * M_2[2,:] - (M_2[2,:].T @ Q) * M_2[1,:]) / (M_2[2,:].T @ Q)**2
-    
-    return J[:,:,:3]
-
-def estimate_3d_nonlinear(M_1, p_1, M_2, p_2):
-    """
-        in :
-            P_0 ~ (N, 4) - initial guess of homogenous 3d points
-            M_1 ~ (3, 4) - projection matrix of image 1
-            p_1 ~ (N, 3) - homogenous 2d points from image 1
-            M_2 ~ (3, 4) - projection matrix of image 2
-            p_2 ~ (N, 3) - homogenous 2d points from image 2
-        out :
-            P   ~ (N, 4) - homogenous 3d points
-    """
-    P = estimate_3d_linear(M_1, p_1, M_2, p_2)
-    N = P.shape[0]
-
-    for _ in range(50):
-        e = reprojection_error(P, M_1, p_1, M_2, p_2)
-        for n, J in enumerate(jacobian(P, M_1, p_1, M_2, p_2)):
-            P[n, :3] = -0.01*np.linalg.inv(J.T @ J) @ J.T @ e[n, :]
-
-    return P
-
-def get_projection_matrices(p_1, p_2, E, K):
-    """
-        in :
-            p_1 ~ (N, 3) - homogenous 2d points from image 1
-            p_2 ~ (N, 3) - homogenous 2d points from image 2
-            E   ~ (N, 3) - The essential matrix of images 1, 2
-            K   ~ (N, 3) - The instrinsics of camera 1, 2
-        out :
-            M_1 ~ (3, 4) - projection matrix of image 1
-            M_2 ~ (3, 4) - projection matrix of image 2
-    """
+'''
+ESTIMATE_INITIAL_RT from the Essential Matrix, we can compute 4 initial
+guesses of the relative RT between the two cameras
+Arguments:
+    E - the Essential Matrix between the two cameras
+Returns:
+    RT: A 4x3x4 tensor in which the 3x4 matrix RT[i,:,:] is one of the
+        four possible transformations
+'''
+def estimate_initial_RT(E):
+    U, D, VT = np.linalg.svd(E)
+    V = VT.T
     W = np.array([
-        [ 0, -1, 0],
-        [ 1, 0, 0],
-        [ 0, 0, 1],
+        [0, -1, 0],
+        [1, 0, 0],
+        [0, 0, 1],
     ])
-
     Z = np.array([
-        [ 0, 1, 0],
-        [ -1, 0, 0],
-        [ 0, 0, 1],
+        [0, 1, 0],
+        [-1, 0, 0],
+        [0, 0, 0],
     ])
 
-    U, _, VT = np.linalg.svd(E)
-    t_x = U @ Z @ U.T
-    t_1 = t_x @ np.array([ 0, 0, +1 ])
-    t_2 = t_x @ np.array([ 0, 0, -1 ])
-    R_1 = U @ W @ VT
-    R_1 = np.linalg.det(R_1) * R_1
-    R_2 = U @ W.T @ VT
-    R_2 = np.linalg.det(R_2) * R_2
+    Q1 = U @ W @ V.T
+    Q2 = U @ W.T @ V.T
+    R1 = np.linalg.det(Q1) * Q1
+    R2 = np.linalg.det(Q2) * Q2
+    u3 = U[:,-1]
 
-    M_def = np.zeros((3, 4))
-    M_def[:3,:3] = np.eye(3)
-    M_def = K @ M_def
+    RT = np.zeros((4,3,4))
+    RT[0, :, :3], RT[0, :, 3] = R1, +u3
+    RT[1, :, :3], RT[1, :, 3] = R1, -u3
+    RT[2, :, :3], RT[2, :, 3] = R2, +u3
+    RT[3, :, :3], RT[3, :, 3] = R2, -u3
 
-    T_list = [
-        np.vstack([R_1.T, t_1.T]).T,
-        np.vstack([R_1.T, t_2.T]).T,
-        np.vstack([R_2.T, t_1.T]).T,
-        np.vstack([R_2.T, t_2.T]).T,
-    ]
+    return RT
+    raise Exception('Not Implemented Error')
 
-    tally = np.zeros(4)
-    for k, T_alt in enumerate(T_list):
-        M_alt = K @ T_alt
-        P_1 = estimate_3d_linear(M_def, p_1, M_alt, p_2)
-        T = np.zeros((4,4))
-        T[:3, :4] = T_alt
-        T[3,3] = 1
-        P_2 = np.einsum('ij,nj->ni', T, P_1)
-        tally[k] = np.sum((P_1[:,2] > 0) & (P_2[:,2] > 0))
+'''
+LINEAR_ESTIMATE_3D_POINT given a corresponding points in different images,
+compute the 3D point is the best linear estimate
+Arguments:
+    image_points - the measured points in each of the M images (Mx2 matrix)
+    camera_matrices - the camera projective matrices (Mx3x4 tensor)
+Returns:
+    point_3d - the 3D point
+'''
+def linear_estimate_3d_point(image_points, camera_matrices):
+    m = image_points.shape[0]
+
+    A = np.zeros((2*m,4))
+    for i in range(m):
+        A[2*i+0,:] = image_points[i,0] * camera_matrices[i, 2, :] - camera_matrices[i, 0, :]
+        A[2*i+1,:] = image_points[i,1] * camera_matrices[i, 2, :] - camera_matrices[i, 1, :] 
     
-    index = np.argmax(tally)
-    M_alt = K @ T_list[index]
+    _, _, VT = np.linalg.svd(A)
+    point_3d = VT[-1,:3] / VT[-1,3]
 
-    return M_def, M_alt
+    return point_3d
+    raise Exception('Not Implemented Error')
+
+'''
+REPROJECTION_ERROR given a 3D point and its corresponding points in the image
+planes, compute the reprojection error vector and associated Jacobian
+Arguments:
+    point_3d - the 3D point corresponding to points in the image
+    image_points - the measured points in each of the M images (Mx2 matrix)
+    camera_matrices - the camera projective matrices (Mx3x4 tensor)
+Returns:
+    error - the 2Mx1 reprojection error vector
+'''
+def reprojection_error(point_3d, image_points, camera_matrices):
+    m = image_points.shape[0]
+
+    hp3d = np.ones((4,))
+    hp3d[:3] = point_3d
+
+    e = np.zeros((2*m,))
+    for i in range(m):
+        M0 = camera_matrices[i,0,:]; M0P = M0.dot(hp3d)
+        M1 = camera_matrices[i,1,:]; M1P = M1.dot(hp3d)
+        M2 = camera_matrices[i,2,:]; M2P = M2.dot(hp3d)
+        e[2*i+0] = M0P / M2P - image_points[i, 0]
+        e[2*i+1] = M1P / M2P - image_points[i, 1]
+    
+    return e
+    raise Exception('Not Implemented Error')
+
+'''
+JACOBIAN given a 3D point and its corresponding points in the image
+planes, compute the reprojection error vector and associated Jacobian
+Arguments:
+    point_3d - the 3D point corresponding to points in the image
+    camera_matrices - the camera projective matrices (Mx3x4 tensor)
+Returns:
+    jacobian - the 2Mx3 Jacobian matrix
+'''
+def jacobian(point_3d, camera_matrices):
+    m = camera_matrices.shape[0]
+
+    hp3d = np.ones((4,))
+    hp3d[:3] = point_3d
+
+    J = np.zeros((2*m,4))
+    for i in range(m):
+        M0 = camera_matrices[i,0,:]; M0P = M0.dot(hp3d)
+        M1 = camera_matrices[i,1,:]; M1P = M1.dot(hp3d)
+        M2 = camera_matrices[i,2,:]; M2P = M2.dot(hp3d)
+        J[2*i+0, :] = (M2P * M0 - M0P * M2) / np.square(M2P)
+        J[2*i+1, :] = (M2P * M1 - M1P * M2) / np.square(M2P)
+
+    return J[:, :3]
+    raise Exception('Not Implemented Error')
+
+'''
+NONLINEAR_ESTIMATE_3D_POINT given a corresponding points in different images,
+compute the 3D point that iteratively updates the points
+Arguments:
+    image_points - the measured points in each of the M images (Mx2 matrix)
+    camera_matrices - the camera projective matrices (Mx3x4 tensor)
+Returns:
+    point_3d - the 3D point
+'''
+def nonlinear_estimate_3d_point(image_points, camera_matrices):
+    point_3d = linear_estimate_3d_point(image_points, camera_matrices)
+
+    for _ in range(10):
+        e = reprojection_error(point_3d, image_points, camera_matrices)
+        J = jacobian(point_3d, camera_matrices)
+        point_3d -= np.linalg.inv(J.T @ J) @ J.T @ e
+    
+    return point_3d
+
+    raise Exception('Not Implemented Error')
+
+'''
+ESTIMATE_RT_FROM_E from the Essential Matrix, we can compute  the relative RT 
+between the two cameras
+Arguments:
+    E - the Essential Matrix between the two cameras
+    image_points - N measured points in each of the M images (NxMx2 matrix)
+    K - the intrinsic camera matrix
+Returns:
+    RT: The 3x4 matrix which gives the rotation and translation between the 
+        two cameras
+'''
+def estimate_RT_from_E(E, image_points, K):
+    n, m, _ = image_points.shape
+    RT0 = np.array([
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+    ])
+    RT = estimate_initial_RT(E) # Hx3x4
+    H, _, _ = RT.shape
+
+    camera_matrices = np.zeros((H,m,3,4))
+    camera_matrices[:, 0, :, :] = (K @ RT0).reshape((1,3,4))
+    camera_matrices[:, 1, :, :] = np.einsum('ij,hjl->hil', K, RT)
+
+    tally = np.zeros((4,))
+    for h in range(H):
+        for i in range(n):
+            c0_point_3d = nonlinear_estimate_3d_point(image_points[i,:,:], camera_matrices[h,:,:,:])
+            c1_point_3d = RT[h, :, :3].dot(c0_point_3d) + RT[h, :, 3]
+            tally[h] += (c0_point_3d[2] > 0) and (c1_point_3d[2] > 0)
+    
+    k = np.argmax(tally)
+
+    return RT[k]
+    raise Exception('Not Implemented Error')
 
 def generate_manual(s = 0.5, scale = 1, save = True):
     # load images
@@ -173,60 +202,76 @@ def generate_manual(s = 0.5, scale = 1, save = True):
     # find triangulation
     delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
 
+    F = np.zeros((f_count, 2, 2))
+    F[:, 0, :] = f_1[:,:2]
+    F[:, 1, :] = f_2[:,:2]
+
     # attempt 3d reconstruction of face
     E, K = get_calibration(f_1, f_2)
-    M_1, M_2 = get_projection_matrices(f_1, f_2, E, K)
-    P = estimate_3d_linear(M_1, f_1, M_2, f_2)
-    geo_utils.plot_tris_3d(P, delu)
-    plt.show() # fail :((
+    RT = estimate_RT_from_E(E, F, K)
 
-    f_s = s * f_1 + (1 - s) * f_2
+    M_1 = K @ np.array([
+        [ 1, 0, 0, 0, ],
+        [ 0, 1, 0, 0, ],
+        [ 0, 0, 1, 0, ],
+    ])
 
-    # Find the coordiantes for all triangles
-    tset_1 = f_1[delu][:, :, :2]
-    tset_2 = f_2[delu][:, :, :2]
-    tset_s = f_s[delu][:, :, :2]
+    M_2 = K @ RT
 
-    I_s = 0 * I_1.copy()
-    local_mask = 0 * I_1.copy()
+    M = np.zeros((2, 3, 4))
+    M[0, :, :] = M_1
+    M[1, :, :] = M_2
 
-    for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
-        # find the affine transformations which send the triangles in each image to the composed location
-        S_1 = cv.getAffineTransform(t_1.astype(np.float32), t_s.astype(np.float32))
-        S_2 = cv.getAffineTransform(t_2.astype(np.float32), t_s.astype(np.float32))
+    P = np.ones((f_count, 4))
+    for k in range(f_count):
+        P[k,:3] = nonlinear_estimate_3d_point(F[k], M)
 
-        # find the mask for the triangle
-        local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
+    p_1 = apply_projection(M_1, P)[:, :2]
+    p_2 = apply_projection(M_2, P)[:, :2]
 
-        # mix the two images on the correct location
-        mix = cv.addWeighted(
-            cv.warpAffine(I_1.copy(), S_1, dim), s,
-            cv.warpAffine(I_2.copy(), S_2, dim), 1 - s,
-            0
-        )
+    geo_utils.plot_tris_2d(p_1, delu)
+    plt.show()
 
-        I_s |= local_mask & mix
+    geo_utils.plot_tris_2d(p_2, delu)
+    plt.show()
+
+    P_1 = M_1[:, 3]
+    P_2 = M_2[:, 3]
+
+    geo_utils.plot_tris_3d(P[:,:3], delu)
+    plt.show()
+
+    #f_s = s * f_1 + (1 - s) * f_2
+
+    ## Find the coordiantes for all triangles
+    #tset_1 = f_1[delu][:, :, :2]
+    #tset_2 = f_2[delu][:, :, :2]
+    #tset_s = f_s[delu][:, :, :2]
+
+    #I_s = 0 * I_1.copy()
+    #local_mask = 0 * I_1.copy()
+
+    #for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
+    #    # find the affine transformations which send the triangles in each image to the composed location
+    #    S_1 = cv.getAffineTransform(t_1.astype(np.float32), t_s.astype(np.float32))
+    #    S_2 = cv.getAffineTransform(t_2.astype(np.float32), t_s.astype(np.float32))
+
+    #    # find the mask for the triangle
+    #    local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
+
+    #    # mix the two images on the correct location
+    #    mix = cv.addWeighted(
+    #        cv.warpAffine(I_1.copy(), S_1, dim), s,
+    #        cv.warpAffine(I_2.copy(), S_2, dim), 1 - s,
+    #        0
+    #    )
+
+    #    I_s |= local_mask & mix
     
-    if save:
-        cv.imwrite(f'output/manual{s:.2f}.jpg', I_s)
+    #if save:
+    #    cv.imwrite(f'output/manual{s:.2f}.jpg', I_s)
 
-    return I_s.copy()
+    #return I_s.copy()
 
-import utils
-
-if __name__ == '__main__':
-    make_gif = False
-
-    if make_gif:
-        frames = []
-
-        for s in tqdm(np.linspace(0.1, 0.9, 11)):
-            frames += [ generate_manual(s, 0.2, save = False) ]
-
-        frames += frames[::-1]
-    
-        utils.create_gif('output/manual.gif', frames)
-    else:
-        frame = generate_manual(0.5, scale = 0.2, save = False)
-        cv.imshow('image', frame)
-        cv.waitKey(0)
+if __name__ == "__main__":
+    generate_manual()
