@@ -191,11 +191,30 @@ def estimate_RT_from_E(E, image_points, K):
     return RT[k]
     raise Exception('Not Implemented Error')
 
-def generate_manual(s = 0.5, scale = 1, save = True):
+def get_normal_map_from_tris(P, tris):
+    """
+        P    ~ (N, 4) - 3d points
+        tris ~ (M, 3) - triangle indices
+    """
+    normal_map = dict()
+    for tri in tris:
+        a, b, c = np.split(P[tri], [1, 2])
+        a = a[0, :3]
+        b = b[0, :3]
+        c = c[0, :3]
+        ijk = tuple(tri)
+        v = np.cross(a-b, c-b)
+        v /= np.linalg.norm(v)
+        normal_map[ijk] = v
+    return normal_map
+
+def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     # load images
-    I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual()
+    I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale)
     f_1 = homogenize_array(f_1)
     f_2 = homogenize_array(f_2)
+    #f_1 = find_face(I_1)
+    #f_2 = find_face(I_2)
 
     f_count = len(f_1)
 
@@ -228,50 +247,71 @@ def generate_manual(s = 0.5, scale = 1, save = True):
 
     p_1 = apply_projection(M_1, P)[:, :2]
     p_2 = apply_projection(M_2, P)[:, :2]
+    M_s = s * M_1 + (1 - s) * M_2
+    f_s = apply_projection(M_s, P)[:, :2]
 
-    geo_utils.plot_tris_2d(p_1, delu)
-    plt.show()
+    #show_faces = False
+    #if show_faces == True:
+    #    geo_utils.plot_tris_2d(p_1, delu)
+    #    plt.show()
 
-    geo_utils.plot_tris_2d(p_2, delu)
-    plt.show()
+    #    geo_utils.plot_tris_2d(p_2, delu)
+    #    plt.show()
 
-    P_1 = M_1[:, 3]
-    P_2 = M_2[:, 3]
-
-    geo_utils.plot_tris_3d(P[:,:3], delu)
-    plt.show()
-
-    #f_s = s * f_1 + (1 - s) * f_2
-
-    ## Find the coordiantes for all triangles
-    #tset_1 = f_1[delu][:, :, :2]
-    #tset_2 = f_2[delu][:, :, :2]
-    #tset_s = f_s[delu][:, :, :2]
-
-    #I_s = 0 * I_1.copy()
-    #local_mask = 0 * I_1.copy()
-
-    #for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
-    #    # find the affine transformations which send the triangles in each image to the composed location
-    #    S_1 = cv.getAffineTransform(t_1.astype(np.float32), t_s.astype(np.float32))
-    #    S_2 = cv.getAffineTransform(t_2.astype(np.float32), t_s.astype(np.float32))
-
-    #    # find the mask for the triangle
-    #    local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
-
-    #    # mix the two images on the correct location
-    #    mix = cv.addWeighted(
-    #        cv.warpAffine(I_1.copy(), S_1, dim), s,
-    #        cv.warpAffine(I_2.copy(), S_2, dim), 1 - s,
-    #        0
-    #    )
-
-    #    I_s |= local_mask & mix
+    #    geo_utils.plot_tris_2d(f_s, delu)
+    #    plt.show()
     
-    #if save:
-    #    cv.imwrite(f'output/manual{s:.2f}.jpg', I_s)
+    #show_triang = True
 
-    #return I_s.copy()
+    #if show_triang:
+    #    geo_utils.plot_tris_3d(P[:,:3], delu)
+    #    plt.show()
+    
+    if subdivide:
+        Q = geo_utils.catmull_clark(P, delu)
+        P = np.ones((Q.shape[0], 4))
+        P[:, :3] = Q[:, :3]
+        f_1 = apply_projection(M_1, P)
+        f_2 = apply_projection(M_2, P)
+        f_s = apply_projection(M_s, P)
+        delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
+
+        #if show_triang:
+        #    geo_utils.plot_tris_3d(P[:,:3], delu)
+        #    plt.show()
+
+    # Find the coordiantes for all triangles
+    tset_1 = f_1[delu][:, :, :2]
+    tset_2 = f_2[delu][:, :, :2]
+    tset_s = f_s[delu][:, :, :2]
+
+    I_s = 0 * I_1.copy()
+    local_mask = 0 * I_1.copy()
+
+    for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
+        # find the affine transformations which send the triangles in each image to the composed location
+        S_1 = cv.getAffineTransform(t_1.astype(np.float32), t_s.astype(np.float32))
+        S_2 = cv.getAffineTransform(t_2.astype(np.float32), t_s.astype(np.float32))
+
+        # find the mask for the triangle
+        local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
+
+        # mix the two images on the correct location
+        mix = cv.addWeighted(
+            cv.warpAffine(I_1.copy(), S_1, dim), s,
+            cv.warpAffine(I_2.copy(), S_2, dim), 1 - s,
+            0
+        )
+
+        I_s |= local_mask & mix
+    
+    if save:
+        cv.imwrite(f'output/manual3{s:.2f}.jpg', I_s)
+
+    return I_s.copy()
 
 if __name__ == "__main__":
-    generate_manual()
+    I = generate_manual(s=0.3, scale=0.4, save=False, subdivide=True) 
+    rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
+    plt.imshow(rgb)
+    plt.show()
