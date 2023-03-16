@@ -208,6 +208,7 @@ def get_normal_map_from_tris(P, tris):
         normal_map[ijk] = v
     return normal_map
 
+
 def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     # load images
     I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale)
@@ -217,6 +218,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     #f_2 = find_face(I_2)
 
     f_count = len(f_1)
+
 
     # find triangulation
     delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
@@ -228,6 +230,15 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     # attempt 3d reconstruction of face
     E, K = get_calibration(f_1, f_2)
     RT = estimate_RT_from_E(E, F, K)
+
+    epilines_1 = np.array([E @ f_2[0], E @ f_2[1]])
+    epilines_2 = np.array([E.T @ f_1[0], E.T @ f_1[1]])
+
+    v_1 = np.cross(epilines_1[0], epilines_1[1])
+    v_2 = np.cross(epilines_2[0], epilines_2[1])
+    v_1 = v_1 / np.linalg.norm(v_1)
+    v_2 = v_2 / np.linalg.norm(v_2)
+
 
     M_1 = K @ np.array([
         [ 1, 0, 0, 0, ],
@@ -250,35 +261,38 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     M_s = s * M_1 + (1 - s) * M_2
     f_s = apply_projection(M_s, P)[:, :2]
 
-    #show_faces = False
-    #if show_faces == True:
-    #    geo_utils.plot_tris_2d(p_1, delu)
-    #    plt.show()
+    show_faces = False
+    if show_faces == True:
+        geo_utils.plot_tris_2d(p_1, delu)
+        plt.show()
 
-    #    geo_utils.plot_tris_2d(p_2, delu)
-    #    plt.show()
+        geo_utils.plot_tris_2d(p_2, delu)
+        plt.show()
 
-    #    geo_utils.plot_tris_2d(f_s, delu)
-    #    plt.show()
+        geo_utils.plot_tris_2d(f_s, delu)
+        plt.show()
     
-    #show_triang = True
+    show_triang = False
 
-    #if show_triang:
-    #    geo_utils.plot_tris_3d(P[:,:3], delu)
-    #    plt.show()
+    if show_triang:
+        geo_utils.plot_tris_3d(P[:,:3], delu)
+        plt.show()
     
     if subdivide:
-        Q = geo_utils.catmull_clark(P, delu)
-        P = np.ones((Q.shape[0], 4))
-        P[:, :3] = Q[:, :3]
-        f_1 = apply_projection(M_1, P)
-        f_2 = apply_projection(M_2, P)
-        f_s = apply_projection(M_s, P)
-        delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
+        for i in range(1):
+            Q = geo_utils.catmull_clark(P, delu)
+            P = np.ones((Q.shape[0], 4))
+            P[:, :3] = Q[:, :3]
+            f_1 = apply_projection(M_1, P)
+            f_2 = apply_projection(M_2, P)
+            f_s = apply_projection(M_s, P)
+            delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
 
-        #if show_triang:
-        #    geo_utils.plot_tris_3d(P[:,:3], delu)
-        #    plt.show()
+        if show_triang:
+            geo_utils.plot_tris_3d(P[:,:3], delu)
+            plt.show()
+
+    normal_map = get_normal_map_from_tris(P, delu)
 
     # Find the coordiantes for all triangles
     tset_1 = f_1[delu][:, :, :2]
@@ -296,22 +310,45 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         # find the mask for the triangle
         local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
 
+        if normal_map[tuple(t_i)] @ v_2 <= 0.5: #then triangle can't be seen from camera 1
+            #print(normal_map[tuple(t_i)] @ v_2)
+            #mix = cv.warpAffine(I_2.copy(), S_2, dim)
+            mix = cv.addWeighted(
+                cv.warpAffine(I_1.copy(), S_1, dim), 0.1,
+                cv.warpAffine(I_2.copy(), S_2, dim), 0.9,
+                0
+            )
+        elif normal_map[tuple(t_i)] @ v_1 <= 0.5:
+            #print("hello")
+            #mix = cv.warpAffine(I_1.copy(), S_1, dim)
+            mix = cv.addWeighted(
+                cv.warpAffine(I_1.copy(), S_1, dim), 0.9,
+                cv.warpAffine(I_2.copy(), S_2, dim), 0.1,
+                0
+            )
+        else:
         # mix the two images on the correct location
+            mix = cv.addWeighted(
+                cv.warpAffine(I_1.copy(), S_1, dim), s,
+                cv.warpAffine(I_2.copy(), S_2, dim), 1 - s,
+                0
+            )
+        '''
         mix = cv.addWeighted(
             cv.warpAffine(I_1.copy(), S_1, dim), s,
             cv.warpAffine(I_2.copy(), S_2, dim), 1 - s,
             0
         )
-
+        '''
         I_s |= local_mask & mix
     
     if save:
-        cv.imwrite(f'output/manual3{s:.2f}.jpg', I_s)
+        cv.imwrite(f'output/occlusion_0.5_newmix3thresh_{s:.2f}.jpg', I_s)
 
     return I_s.copy()
 
 if __name__ == "__main__":
-    I = generate_manual(s=0.3, scale=0.4, save=False, subdivide=True) 
+    I = generate_manual(s=0.5, scale=0.4, save=True, subdivide=True)
     rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
     plt.imshow(rgb)
     plt.show()
