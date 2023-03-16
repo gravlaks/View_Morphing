@@ -7,7 +7,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from skimage.io import imread
-from sfm_utils import *
+from HW.sfm_utils import *
 
 '''
 ESTIMATE_INITIAL_RT from the Essential Matrix, we can compute 4 initial
