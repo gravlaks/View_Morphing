@@ -47,6 +47,26 @@ def plot_tris_3d(pts_3d, tris):
         trip = pts_3d[tri]
         ax.plot(*trip.T)
 
+def plot_tris_3d_norm(pts_3d, normal_map, tris):
+    """
+        Plot a triangle mesh in 3d
+    """
+    fig = get_unique_fig()
+    ax = fig.add_subplot(1, 1, 1, projection='3d')
+    x_min = np.min(pts_3d[:,:])
+    x_max = np.max(pts_3d[:,:])
+
+    for i, j, k in tris:
+        ijk = (i, j, k)
+        midpoint = (pts_3d[i] + pts_3d[j] + pts_3d[k]) / 3
+        normal = 0.005 * normal_map[ijk]
+        tri = np.array([i, j, k, i])
+        trip = pts_3d[tri]
+        ax.plot(*trip.T)
+        ax.quiver(*midpoint, *normal)
+    ax.set_box_aspect((np.ptp(pts_3d[:,0]), np.ptp(pts_3d[:,1]), np.ptp(pts_3d[:,2])))  # aspect ratio is 1:1:1 in data space
+
+
 # find triangulation of projection
 def get_tris_xy(pts_3d):
     """

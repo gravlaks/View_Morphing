@@ -140,7 +140,7 @@ def nonlinear_estimate_3d_point(image_points, camera_matrices):
     # TODO: Implement this method!
     point_3d = linear_estimate_3d_point(image_points, camera_matrices)
 
-    for _ in range(10):
+    for _ in range(20):
         e = reprojection_error(point_3d, image_points, camera_matrices)
         J = jacobian(point_3d, camera_matrices)
         point_3d -= np.linalg.inv(J.T @ J) @ J.T @ e
