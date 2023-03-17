@@ -148,6 +148,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
 
     I_s = 0 * I_1.copy()
     local_mask = 0 * I_1.copy()
+    total_mask = local_mask.copy()
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
         # find the affine transformations which send the triangles in each image to the composed location
@@ -171,8 +172,12 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         )
 
         I_s |= local_mask & mix
+        total_mask = np.asarray(local_mask).astype(bool) | total_mask.astype(bool)
+
     
     if save:
+        np.save(f'output/occlusion_mask', local_mask)
+
         cv.imwrite(f'output/occlusion_0.5_newmix3thresh_{s:.2f}.jpg', I_s)
 
     return I_s.copy()
