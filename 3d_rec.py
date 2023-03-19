@@ -68,6 +68,8 @@ def create_RT(phi, theta, z):
 def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     # load images
     I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale)
+    
+    
     f_1 = homogenize_array(f_1)
     f_2 = homogenize_array(f_2)
 
@@ -118,8 +120,8 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     p_1 = apply_projection(M_1, P)[:, :2]
     p_2 = apply_projection(M_2, P)[:, :2]
 
-    R1 = M_1[:3, :3]
-    R2 = M_2[:3, :3]
+    R1 = np.eye(3)
+    R2 = RT[:3, :3]
 
     
 
@@ -133,17 +135,18 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
 
     axis = axis_angle[:3]/np.linalg.norm(axis_angle[:3])
 
-    new_angle = axis_angle[3]*s
+    new_angle = axis_angle[3]*(1-s)
     axis_angle_s = np.concatenate((axis.reshape((-1, 1)), np.array([new_angle]).reshape((-1,1))))
 
     rot_matrix_relative_s = rot_matrix_from_axis_angle(axis_angle_s.flatten())
 
     R_s = R1@rot_matrix_relative_s
-    t_s = M_1[:3, 3]*s + (1-s)*M_2[:3, 3]
-    #t_s = M_2[:3, 3]
-    M_s = np.eye(4)
-    M_s[:3, :3] = R_s
-    M_s[:3, 3] = t_s
+    
+    t_s = (1-s)*RT[:3, 3]
+    RT_s = np.concatenate((np.eye(3), np.zeros((3, 1))), axis=1)
+    RT_s[:3, :3] = R_s
+    RT_s[:3, 3] = t_s
+    M_s = K@RT_s
     #M_s = s * M_1 + (1 - s) * M_2
     f_s = apply_projection(M_s, P)[:, :2]
 
@@ -201,6 +204,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
         # find the affine transformations which send the triangles in each image to the composed location
+    
         S_1 = cv.getAffineTransform(t_1.astype(np.float32), t_s.astype(np.float32))
         S_2 = cv.getAffineTransform(t_2.astype(np.float32), t_s.astype(np.float32))
 
@@ -214,6 +218,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         s_1 = s_1 / S
         s_2 = s_2 / S
 
+        
         mix = cv.addWeighted(
             cv.warpAffine(I_1.copy(), S_1, dim), s_1,
             cv.warpAffine(I_2.copy(), S_2, dim), s_2,
@@ -226,13 +231,13 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     
     if save:
         np.save(f'output/occlusion_mask', local_mask)
-
+        
         cv.imwrite(f'output/occlusion_0.5_newmix3thresh_{s:.2f}.jpg', I_s)
 
     return I_s.copy()
 
 if __name__ == "__main__":
-    I = generate_manual(s=0, scale=0.4, save=True, subdivide=True)
+    I = generate_manual(s=1, scale=0.4, save=True, subdivide=True)
     rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
     plt.imshow(rgb)
     plt.show()
