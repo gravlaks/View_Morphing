@@ -200,7 +200,13 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
 
     I_s = 0 * I_1.copy()
     local_mask = 0 * I_1.copy()
+    
     total_mask = local_mask.copy()
+    min_x = tset_s[:, :, 0].min()
+    min_y = tset_s[:, :, 1].min()
+
+    tset_s[:, :, 0] -= min_x
+    tset_s[:, :, 1] -= min_y
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
         # find the affine transformations which send the triangles in each image to the composed location
@@ -218,7 +224,6 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         s_1 = s_1 / S
         s_2 = s_2 / S
 
-        
         mix = cv.addWeighted(
             cv.warpAffine(I_1.copy(), S_1, dim), s_1,
             cv.warpAffine(I_2.copy(), S_2, dim), s_2,
@@ -237,7 +242,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     return I_s.copy()
 
 if __name__ == "__main__":
-    I = generate_manual(s=1, scale=0.4, save=True, subdivide=True)
+    I = generate_manual(s=0.5, scale=0.4, save=True, subdivide=True)
     rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
     plt.imshow(rgb)
     plt.show()
