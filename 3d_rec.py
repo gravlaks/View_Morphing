@@ -131,17 +131,16 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     axis_angle = rot_matrix_to_axis_angle(relative_rotation)
 
 
-    axis = axis_angle[:3]
-    #new_angle = np.linalg.norm(axis)*s
+    axis = axis_angle[:3]/np.linalg.norm(axis_angle[:3])
+
     new_angle = axis_angle[3]*s
     axis_angle_s = np.concatenate((axis.reshape((-1, 1)), np.array([new_angle]).reshape((-1,1))))
-    axis_angle_s = axis_angle_s/np.linalg.norm(axis_angle_s.flatten())
 
-    #rot_matrix_relative_s, _ = cv2.Rodrigues(axis.flatten()*s)
     rot_matrix_relative_s = rot_matrix_from_axis_angle(axis_angle_s.flatten())
 
     R_s = R1@rot_matrix_relative_s
     t_s = M_1[:3, 3]*s + (1-s)*M_2[:3, 3]
+    #t_s = M_2[:3, 3]
     M_s = np.eye(4)
     M_s[:3, :3] = R_s
     M_s[:3, 3] = t_s
@@ -168,7 +167,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         geo_utils.plot_tris_2d(f_s, delu)
         plt.show()
     
-    show_triang = True
+    show_triang = False
 
     if show_triang:
         geo_utils.plot_tris_3d(P[:,:3], delu)
@@ -233,7 +232,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     return I_s.copy()
 
 if __name__ == "__main__":
-    I = generate_manual(s=0.5, scale=0.4, save=True, subdivide=True)
+    I = generate_manual(s=0, scale=0.4, save=True, subdivide=True)
     rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
     plt.imshow(rgb)
     plt.show()
