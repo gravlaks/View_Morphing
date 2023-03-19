@@ -59,7 +59,7 @@ def plot_tris_3d_norm(pts_3d, normal_map, tris):
     for i, j, k in tris:
         ijk = (i, j, k)
         midpoint = (pts_3d[i] + pts_3d[j] + pts_3d[k]) / 3
-        normal = 0.005 * normal_map[ijk]
+        normal = normal_map[ijk]
         tri = np.array([i, j, k, i])
         trip = pts_3d[tri]
         ax.plot(*trip.T)
