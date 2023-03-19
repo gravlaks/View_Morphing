@@ -283,8 +283,8 @@ if __name__ == '__main__':
     '''
     #frame = generate_warping(0.5, use_prewarp=True, calib=True)
     frames = []
-    for s in tqdm(np.linspace(0.1, 0.9, 11)):
-        frames += [ generate_manual(s, use_prewarp=False, save=False, calibrated=False) ]
+    for s in [0.5]:
+        frames += [ generate_manual(s, use_prewarp=False, save=True, calibrated=True) ]
     frames += frames[::-1]
     
     utils.create_gif('output/manual.gif', frames)

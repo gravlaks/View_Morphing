@@ -12,7 +12,7 @@ if __name__ == '__main__':
     predictor = dlib.shape_predictor("data/shape_predictor_68_face_landmarks.dat")
 
     filename = ""
-    im  = cv.imread("temp_data/eunice_torstein.jpg")
+    im  = cv.imread("output/occlusion_0.5_newmix3thresh_0.50.jpg")
     dims = im.shape
     scale_percent = 30 # percent of original size
     width = int(dims[0] * scale_percent / 100)
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     dims = (width, height)
     print()
     im = cv.resize(im, dims, interpolation = cv.INTER_AREA)
-    
+    cv.imwrite("temp_data/new_img.png", im)
     dims = im.shape
     mask = np.zeros(dims)
     print(im.shape)

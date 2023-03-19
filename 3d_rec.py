@@ -8,6 +8,28 @@ from itertools import count
 import geo_utils
 import matplotlib.pyplot as plt
 from HW.p4 import *
+def rot_matrix_from_axis_angle(axis_angle):
+    a = axis_angle[3]
+    c = np.cos(a)
+    s = np.sin(a)
+    t = 1-c
+    x = axis_angle[0]
+    y = axis_angle[1]
+    z = axis_angle[2]
+    R = np.array([[t*x*x + c, t*x*y - z*s, t*x*z +y*s],
+                  [t*x*y + z*t, t*y*y + c, t*y*z - x*s],
+                  [t*x*z - y*s, t*y*z + x*s, t*z*z + c]])
+    return R
+
+def rot_matrix_to_axis_angle(R):
+    angle = np.arccos((R[0,0]+R[1,1]+R[2,2]-1)/2)
+    x = (R[2,1] - R[1,2]) /np.sqrt(((R[2,1] - R[1,2])**2 + (R[0,2] - R[2,0])**2 + (R[1,0] - R[0,1])**2))
+    y = (R[0,2] - R[2,0]) / np.sqrt(((R[2,1] - R[1,2])**2 + (R[0,2] - R[2,0])**2 + (R[1,0] - R[0,1])**2))
+    z = (R[1,0] - R[0,1]) / np.sqrt(((R[2,1] - R[1,2])**2 + (R[0,2] - R[2,0])**2 + (R[1,0] - R[0,1])**2))
+    
+    axis_angle = np.array([x,y,z, angle])
+
+    return axis_angle
 
 def apply_projection(A, x):
     """
@@ -95,7 +117,35 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
 
     p_1 = apply_projection(M_1, P)[:, :2]
     p_2 = apply_projection(M_2, P)[:, :2]
-    M_s = s * M_1 + (1 - s) * M_2
+
+    R1 = M_1[:3, :3]
+    R2 = M_2[:3, :3]
+
+    
+
+    relative_rotation = np.linalg.inv(R1)@R2
+
+
+    #axis_angle,_ = cv2.Rodrigues(relative_rotation)
+
+    axis_angle = rot_matrix_to_axis_angle(relative_rotation)
+
+
+    axis = axis_angle[:3]
+    #new_angle = np.linalg.norm(axis)*s
+    new_angle = axis_angle[3]*s
+    axis_angle_s = np.concatenate((axis.reshape((-1, 1)), np.array([new_angle]).reshape((-1,1))))
+    axis_angle_s = axis_angle_s/np.linalg.norm(axis_angle_s.flatten())
+
+    #rot_matrix_relative_s, _ = cv2.Rodrigues(axis.flatten()*s)
+    rot_matrix_relative_s = rot_matrix_from_axis_angle(axis_angle_s.flatten())
+
+    R_s = R1@rot_matrix_relative_s
+    t_s = M_1[:3, 3]*s + (1-s)*M_2[:3, 3]
+    M_s = np.eye(4)
+    M_s[:3, :3] = R_s
+    M_s[:3, 3] = t_s
+    #M_s = s * M_1 + (1 - s) * M_2
     f_s = apply_projection(M_s, P)[:, :2]
 
 
@@ -118,7 +168,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         geo_utils.plot_tris_2d(f_s, delu)
         plt.show()
     
-    show_triang = False
+    show_triang = True
 
     if show_triang:
         geo_utils.plot_tris_3d(P[:,:3], delu)
