@@ -85,8 +85,9 @@ if __name__ == "__main__":
         cv2.destroyAllWindows()
         clicked = False
     cv2.destroyAllWindows()
+    filename="data/manual.json"
 
-    print(f"Saving labeling with {len(yshared_coordinates_1)} shared keys and {len(nshared_coordinates_1)} non-shared keys to data/manual.json")
+    print(f"Saving labeling with {len(yshared_coordinates_1)} shared keys and {len(nshared_coordinates_1)} non-shared keys to {filename}")
 
     data = [
         {
@@ -100,4 +101,4 @@ if __name__ == "__main__":
             "non_shared_keys" : nshared_coordinates_2,
         }
     ]
-    json.dump(data, open('data/manual.json', 'w'))
+    json.dump(data, open(filename, 'w'))
