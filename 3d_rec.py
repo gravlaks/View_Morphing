@@ -70,9 +70,10 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale)
     
     
-    f_1 = homogenize_array(f_1)
-    f_2 = homogenize_array(f_2)
-
+    # f_1 = homogenize_array(f_1)[:54]
+    # f_2 = homogenize_array(f_2)
+    f_1 = find_face(I_1)
+    f_2 = find_face(I_2)
     f_count = len(f_1)
 
     # find triangulation
@@ -170,7 +171,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         geo_utils.plot_tris_2d(f_s, delu)
         plt.show()
     
-    show_triang = False
+    show_triang = True
 
     if show_triang:
         geo_utils.plot_tris_3d(P[:,:3], delu)
@@ -206,7 +207,10 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     min_y = tset_s[:, :, 1].min()
 
     tset_s[:, :, 0] -= min_x
-    tset_s[:, :, 1] -= min_y
+    tset_s[:, :, 1] -= min_y 
+    
+    # tset_s[:, :, 0] += I_1.shape[1]//2
+    # tset_s[:, :, 1] += I_1.shape[0]//2
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
         # find the affine transformations which send the triangles in each image to the composed location
@@ -218,8 +222,8 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
 
         n = normal_map[tuple(t_i)]
-        s_1 = (0.01 - min(n.dot(v_1), 0))
-        s_2 = (0.01 - min(n.dot(v_2), 0))
+        s_1 = (0.01 - min(5*n.dot(v_1), 0))
+        s_2 = (0.01 - min(5*n.dot(v_2), 0))
         S = s_1 + s_2
         s_1 = s_1 / S
         s_2 = s_2 / S
