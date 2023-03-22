@@ -72,15 +72,8 @@ def load_mona_lisas():
     # generate left and right facing mona lisa
     mona_1 = cv.imread("data/torstein/front.jpg")  # add for epiline plot cv.IMREAD_GRAYSCALE
     dims = (mona_1.shape[1], mona_1.shape[0])
-    # print("dims", dims)
 
-    # mona_2 = cv.imread("data/torstein/right.jpg")
-
-    # F = np.eye(3)
-    # F[0, 0] = -1
-    # F[0, 2] = dims[0]
-    # #mona_2 = cv.warpPerspective(mona_1, F, dims)
-    mona_1 = cv.imread("data/torstein/front.jpg")  # add for epiline plot cv.IMREAD_GRAYSCALE
+    mona_1 = cv.imread("data/torstein/right.jpg")  # add for epiline plot cv.IMREAD_GRAYSCALE
     mona_2 = cv.imread("data/torstein/left.jpg")  # add for epiline plot cv.IMREAD_GRAYSCALE
     dims = (mona_1.shape[1], mona_1.shape[0])
     scale_percent = 10  # percent of original size
@@ -248,7 +241,7 @@ def get_framed_homographies(F, f_1, f_2, dims, openCVprewarp=True):
             apply_perspective(np.linalg.inv(H_2), f_2),
         ])[:, :2]
     else:
-        H = cv.stereoRectifyUncalibrated(f_1, f_2, F, dims)
+        H = cv.stereoRectifyUncalibrated(f_1, f_2, F)
         H_1 = H[1]
         H_2 = H[2]
         f = np.vstack([
@@ -273,7 +266,6 @@ def get_framed_homographies(F, f_1, f_2, dims, openCVprewarp=True):
     T = np.linalg.inv(T)
 
     if openCVprewarp == False:
-        # is this really correct?
         return H_1 @ T, H_2 @ T, dims
     else:
         return H_1, H_2, dims

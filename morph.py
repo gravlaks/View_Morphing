@@ -1,27 +1,31 @@
 import cv2
 import numpy as np
-
 from morph_utils import*
 import scipy.spatial
 import utils
 from tqdm import tqdm
 
-def generate_manual(s = 0.5, use_prewarp = False, save = True, calibrated = False):
+def generate_mona(s=0.5, use_prewarp=True, save=True, calibrated=False, manual=False, scale=0.5, openCvprewarp=False):
     # load images
-    I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual()
-    f_1 = homogenize_array(f_1)
-    f_2 = homogenize_array(f_2)
+    if manual:
+        # load images
+        I_1, f_1, n_1, I_2, f_2, n_2, dim_1 = load_manual(scale=scale)
+        f_1 = homogenize_array(f_1)
+        f_2 = homogenize_array(f_2)
+    else:
+        I_1, I_2, dim_1 = load_mona_lisas()
+        f_1, f_2 = find_face(I_1), find_face(I_2)
+
+    # three set of features -- the frame, the first face, the second face
+    f_0 = np.array([
+        [0, 0, 1],
+        [dim_1[0], 0, 1],
+        [0, dim_1[1], 1],
+        [dim_1[0], dim_1[1], 1],
+    ])
 
     f_count = len(f_1)
 
-    # three set of features -- the frame, the first face, the second face
-    f_0 = np.array([
-        [ 0, 0, 1 ],
-        [ dim[0], 0, 1 ],
-        [ 0, dim[1], 1 ],
-        [ dim[0], dim[1], 1 ],
-    ])
-    
     if calibrated:
         F = get_fundamental_calib(f_1, f_2)
     else:
@@ -34,88 +38,7 @@ def generate_manual(s = 0.5, use_prewarp = False, save = True, calibrated = Fals
     delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
 
     # Find homographies, new image dimension (larger)
-    dim_2 = dim
-
-    # Transform images and features
-    if use_prewarp:
-        H_1, H_2, dim_2 = get_framed_homographies(F, f_1, f_2, dim, openCVprewarp=False)
-
-        Hi_1 = np.linalg.inv(H_1)
-        Hi_2 = np.linalg.inv(H_2)
-
-        I_1 = cv.warpPerspective(I_1, Hi_1, dim_2)
-        I_2 = cv.warpPerspective(I_2, Hi_2, dim_2)
-
-        f_1 = apply_perspective(Hi_1, f_1)
-        f_2 = apply_perspective(Hi_2, f_2)
-    else:
-        dim_2 = dim
-    f_s = s * f_1 + (1 - s) * f_2
-
-    # Find the postwarp transformation
-    H_s = cv.getPerspectiveTransform(f_s[-4:,:2].astype(np.float32), f_0[:,:2].astype(np.float32))
-
-    # Find the coordiantes for all triangles
-    tset_1 = f_1[delu][:, :, :2]
-    tset_2 = f_2[delu][:, :, :2]
-    tset_s = f_s[delu][:, :, :2]
-
-    I_s = 0 * I_1.copy()
-    local_mask = 0 * I_1.copy()
-
-    for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
-        if any(t_i > f_count - 1):
-            continue
-
-        # find the affine transformations which send the triangles in each image to the composed location
-        S_1 = cv.getAffineTransform(t_1.astype(np.float32), t_s.astype(np.float32))
-        S_2 = cv.getAffineTransform(t_2.astype(np.float32), t_s.astype(np.float32))
-
-        # find the mask for the triangle
-        local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
-
-        # mix the two images on the correct location
-        mix = cv.addWeighted(
-            cv.warpAffine(I_1.copy(), S_1, dim_2), s,
-            cv.warpAffine(I_2.copy(), S_2, dim_2), 1 - s,
-            0
-        )
-
-        I_s |= local_mask & mix
-    
-    # draw the final image
-    I_s = cv.warpPerspective(I_s, H_s, dim)
-    if save:
-        cv.imwrite(f'output/manual{s:.2f}.jpg', I_s)
-
-    return I_s.copy()
-
-def generate_mona(s = 0.5, use_prewarp = True, save = True, calibrated = False):
-    # load images
-    I_1, I_2, dim_1 = load_mona_lisas()
-
-    # three set of features -- the frame, the first face, the second face
-    f_0 = np.array([
-        [ 0, 0, 1 ],
-        [ dim_1[0], 0, 1 ],
-        [ 0, dim_1[1], 1 ],
-        [ dim_1[0], dim_1[1], 1 ],
-    ])
-    f_1, f_2 = find_face(I_1), find_face(I_2)
-    
-    if calibrated:
-        F = get_fundamental_calib(f_1, f_2)
-    else:
-        F = get_fundamental(f_1, f_2)
-
-    f_1 = np.vstack([ f_1, f_0 ])
-    f_2 = np.vstack([ f_2, f_0 ])
-
-    # find triangulation
-    delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
-
-    # Find homographies, new image dimension (larger)
-    H_1, H_2, dim_2 = get_framed_homographies(F, f_1, f_2, dim_1, openCVprewarp=False)
+    H_1, H_2, dim_2 = get_framed_homographies(F, f_1, f_2, dim_1, openCVprewarp=openCvprewarp)
 
     Hi_1 = np.linalg.inv(H_1)
     Hi_2 = np.linalg.inv(H_2)
@@ -141,7 +64,7 @@ def generate_mona(s = 0.5, use_prewarp = True, save = True, calibrated = False):
     I_s = 0 * I_1.copy()
     total_mask = np.zeros(dim_2 ).T
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
-        if np.any(t_i > 67):
+        if np.any(t_i > f_count - 1):
             # do not include background
             continue
 
@@ -165,112 +88,14 @@ def generate_mona(s = 0.5, use_prewarp = True, save = True, calibrated = False):
         # add the triangle to the image
         total_mask = np.asarray(mask).astype(bool)[:, :, 0] | total_mask.astype(bool)
         I_s += cv.bitwise_and(mask, mix)
-    
-    
+
     # draw the final image
     I_s = cv.warpPerspective(I_s, H_s, dim_1)
-    import matplotlib.pyplot as plt
-    plt.imshow(total_mask)
-    plt.show()
+
     if save:
         np.save(f'output/mona{s:.2f}_mask', total_mask)
-        cv.imwrite(f'output/mona{s:.2f}.jpg', I_s)
+        cv.imwrite(f'output/manual{s:.2f}.jpg', I_s)
     return I_s.copy()
-
-def generate_warping(s = 0.5, use_prewarp = True, save = True, calib=False):
-    # load images
-    I_1, I_2, dim_1 = load_mona_lisas()
-
-    # three set of features -- the frame, the first face, the second face
-    f_0 = np.array([
-        [ 0, 0, 1 ],
-        [ dim_1[0], 0, 1 ],
-        [ 0, dim_1[1], 1 ],
-        [ dim_1[0], dim_1[1], 1 ],
-    ])
-    f_1, f_2 = find_face(I_1), find_face(I_2)
-    #print(f_1)
-
-    #use this if you want to use manual labeling
-    '''
-    f_1 = np.loadtxt("coordinates.txt", dtype=int)
-    f_2 = np.loadtxt("coordinates2.txt", dtype=int)
-
-    f_1 = np.hstack((f_1, np.ones((f_1.shape[0],1))))
-    f_2 = np.hstack((f_2, np.ones((f_2.shape[0], 1))))
-    '''
-    #plot_landmarks(I_1, f_1)
-    #plot_landmarks(I_2, f_2)
-
-    if calib:
-        F = get_fundamental_calib(f_1, f_2)
-    else:
-        F = get_fundamental(f_1, f_2)
-    f_1 = np.vstack([ f_1, f_0 ])
-    f_2 = np.vstack([ f_2, f_0 ])
-
-
-    # find triangulation
-    delu = scipy.spatial.Delaunay(f_1[:,:2]).simplices
-
-    # Find homographies, new image dimension (larger)
-
-    H_1, dim_2 = get_framed_homographies(F, f_1, f_2, dim_1, openCVprewarp=True)
-
-    Hi_1 = np.linalg.inv(H_1)
-
-    # Transform images and features
-    if use_prewarp:
-        I_1 = cv.warpPerspective(I_1, Hi_1, dim_2)
-        f_1 = apply_perspective(Hi_1, f_1)
-        cv2.imwrite('output/warped_s.jpg', I_1)
-    else:
-        dim_2 = dim_1
-
-    f_s = s * f_1 + (1 - s) * f_2
-
-    #plot_epi_lines(I_1, I_2, f_1, f_2, F) #grayscale image has to be used
-
-    # Find the postwarp transformation
-    H_s = cv.getPerspectiveTransform(f_s[-4:,:2].astype(np.float32), f_0[:,:2].astype(np.float32))
-
-    # Find the coordiantes for all triangles
-    tset_1 = f_1[delu][:, :, :2]
-    tset_2 = f_2[delu][:, :, :2]
-    tset_s = f_s[delu][:, :, :2]
-
-    I_s = 0 * I_1.copy()
-    for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
-        if np.any(t_i > 67):
-            # do not include background
-            continue
-
-        # find the affine transformations which send the triangles in each image to the composed location
-        S_1 = cv.getAffineTransform(t_1.astype(np.float32), t_s.astype(np.float32))
-        S_2 = cv.getAffineTransform(t_2.astype(np.float32), t_s.astype(np.float32))
-
-        # find the mask for the triangle
-        mask = cv.bitwise_and(
-            cv.drawContours(0 * I_1.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1),
-            cv.bitwise_not(I_s)
-        )
-
-        # mix the two images on the correct location
-        mix = cv.addWeighted(
-            cv.warpAffine(I_1.copy(), S_1, dim_2), s,
-            cv.warpAffine(I_2.copy(), S_2, dim_2), 1 - s,
-            0
-        )
-
-        # add the triangle to the image
-        I_s += cv.bitwise_and(mask, mix)
-
-    # draw the final image
-    I_s = cv.warpPerspective(I_s, H_s, dim_1)
-    if save:
-        cv.imwrite(f'output/manual_0_5_baseline{s:.2f}.jpg', I_s)
-    return I_s.copy()
-
 
 import utils
 
@@ -281,7 +106,8 @@ if __name__ == '__main__':
         frames += [ generate_mona(s, use_prewarp = False, save = False, calibrated=False) ]
     frames += frames[::-1]
     '''
-    frame = generate_manual(0.5, use_prewarp=True, calibrated=True)
+    #manual and openCvprewarp can't be used together
+    frame = generate_mona(0.5, use_prewarp=True, manual=True, openCvprewarp=False)
     '''
     frames = []
     for s in [0.5]:
