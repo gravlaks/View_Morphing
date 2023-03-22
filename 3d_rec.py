@@ -97,14 +97,18 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     v_1 = np.array([0, 0, 1])
     v_2 = RT[:3,:3].T @ np.array([0, 0, 1])
 
-    #fund = np.linalg.inv(K).T @ E @ np.linalg.inv(K)
-    epilines_1 = np.array([E @ f_2[0], E @ f_2[1]])
-    epilines_2 = np.array([E.T @ f_1[0], E.T @ f_1[1]])
+    fund = np.linalg.inv(K).T @ E @ np.linalg.inv(K)
+    epilines_1 = np.array([fund @ f_2[0], fund @ f_2[1]])
+    epilines_2 = np.array([fund.T @ f_1[0], fund.T @ f_1[1]])
 
     v_1 = np.cross(epilines_1[0], epilines_1[1])
     v_2 = np.cross(epilines_2[0], epilines_2[1])
-    v_1 = -v_1 / np.linalg.norm(v_1)
+    v_1 = v_1 / np.linalg.norm(v_1)
     v_2 = v_2 / np.linalg.norm(v_2)
+
+    #- +
+    #-- 
+    #+-
 
     M = np.zeros((2, 3, 4))
     M[0, :, :] = M_1
