@@ -33,12 +33,12 @@ def homogenize(pt):
     pt2[:k] = pt
     return pt2
 
-def load_manual(scale = 1):
+def load_manual(scale = 1, filename='data/manual.json'):
     """
     load manually labeled images, shared keys and non-shared keys
     """
     # load manual data
-    data = json.loads(open('data/manual.json').read())
+    data = json.loads(open(filename).read())
     path_1 = data[0]['path']
     yshared_1 = data[0]['shared_keys']
     nshared_1 = data[0]['non_shared_keys']
