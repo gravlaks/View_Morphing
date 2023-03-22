@@ -206,12 +206,18 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     local_mask = 0 * I_1.copy()
     global_mask = 0 * I_1.copy()
     
-    total_mask = local_mask.copy()
     min_x = tset_s[:, :, 0].min()
     min_y = tset_s[:, :, 1].min()
 
-    tset_s[:, :, 0] -= min_x
-    tset_s[:, :, 1] -= min_y
+    tset_s[:, :, 0] -= min_x#-200
+    tset_s[:, :, 1] -= min_y#-200
+    # f_0 = np.array([
+    #     [ 0, 0, 1 ],
+    #     [ dim[0], 0, 1 ],
+    #     [ 0, dim[1], 1 ],
+    #     [ dim[0], dim[1], 1 ],
+    # ])
+    # H_s = cv.getPerspectiveTransform(f_s[-4:,:2].astype(np.float32), f_0[:,:2].astype(np.float32))
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
         # find the affine transformations which send the triangles in each image to the composed location
@@ -239,18 +245,19 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
 
         I_s |= local_mask & mix & ~global_mask
         global_mask |= local_mask
-        total_mask = np.asarray(local_mask).astype(bool) | total_mask.astype(bool)
+
+    # I_s = cv.warpPerspective(I_s, H_s, dim)
 
     
     if save:
-        np.save(f'output/occlusion_mask', local_mask)
+        np.save(f'output/occlusion_mask', global_mask)
         
         cv.imwrite(f'output/side_by_side_new_blending{s:.2f}.jpg', I_s)
 
     return I_s.copy()
 
 if __name__ == "__main__":
-    I = generate_manual(s=0.5, scale=0.4, save=True, subdivide=True)
+    I = generate_manual(s=0.5, scale=0.2, save=True, subdivide=True)
     rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
     plt.imshow(rgb)
     plt.show()
