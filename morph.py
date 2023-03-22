@@ -5,7 +5,7 @@ import scipy.spatial
 import utils
 from tqdm import tqdm
 
-def generate_mona(s=0.5, use_prewarp=True, save=True, calibrated=False, manual=False, scale=0.5, openCvprewarp=False):
+def generate_mona(s=0.5, use_prewarp=True, save=True, calibrated=False, manual=False, scale=0.4, openCvprewarp=False):
     # load images
     if manual:
         # load images

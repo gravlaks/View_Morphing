@@ -241,7 +241,7 @@ def get_framed_homographies(F, f_1, f_2, dims, openCVprewarp=True):
             apply_perspective(np.linalg.inv(H_2), f_2),
         ])[:, :2]
     else:
-        H = cv.stereoRectifyUncalibrated(f_1, f_2, F)
+        H = cv.stereoRectifyUncalibrated(f_1, f_2, F, dims)
         H_1 = H[1]
         H_2 = H[2]
         f = np.vstack([
