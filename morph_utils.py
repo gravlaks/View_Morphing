@@ -252,7 +252,8 @@ def get_framed_homographies(F, f_1, f_2, dims, openCVprewarp=True):
         H_1 = H[1]
         H_2 = H[2]
         f = np.vstack([
-            apply_perspective(np.linalg.inv(H_1), f_1)
+            apply_perspective(np.linalg.inv(H_1), f_1),
+            apply_perspective(np.linalg.inv(H_2), f_2),
         ])[:, :2]
 
     x_min = np.min(f[:, 0]) / (2 * dims[0])
