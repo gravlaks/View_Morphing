@@ -49,6 +49,7 @@ if __name__ == "__main__":
     # reading the image
     image_1 = 'data/torstein/left.jpg'
     image_2 = 'data/torstein/right.jpg'
+    filename="data/manual2.json"
     img_1 = cv2.imread(image_1, 1)
     img_2 = cv2.imread(image_2, 1)
 
@@ -85,7 +86,6 @@ if __name__ == "__main__":
         cv2.destroyAllWindows()
         clicked = False
     cv2.destroyAllWindows()
-    filename="data/manual.json"
 
     print(f"Saving labeling with {len(yshared_coordinates_1)} shared keys and {len(nshared_coordinates_1)} non-shared keys to {filename}")
 
