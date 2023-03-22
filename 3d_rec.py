@@ -70,10 +70,9 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale)
     
     
-    # f_1 = homogenize_array(f_1)[:54]
-    # f_2 = homogenize_array(f_2)
-    f_1 = find_face(I_1)
-    f_2 = find_face(I_2)
+    f_1 = homogenize_array(f_1)
+    f_2 = homogenize_array(f_2)
+
     f_count = len(f_1)
 
     # find triangulation
@@ -98,7 +97,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     v_1 = np.array([0, 0, 1])
     v_2 = RT[:3,:3].T @ np.array([0, 0, 1])
 
-    
+    #fund = np.linalg.inv(K).T @ E @ np.linalg.inv(K)
     epilines_1 = np.array([E @ f_2[0], E @ f_2[1]])
     epilines_2 = np.array([E.T @ f_1[0], E.T @ f_1[1]])
 
@@ -171,7 +170,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         geo_utils.plot_tris_2d(f_s, delu)
         plt.show()
     
-    show_triang = True
+    show_triang = False
 
     if show_triang:
         geo_utils.plot_tris_3d(P[:,:3], delu)
@@ -201,16 +200,14 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
 
     I_s = 0 * I_1.copy()
     local_mask = 0 * I_1.copy()
+    global_mask = 0 * I_1.copy()
     
     total_mask = local_mask.copy()
     min_x = tset_s[:, :, 0].min()
     min_y = tset_s[:, :, 1].min()
 
     tset_s[:, :, 0] -= min_x
-    tset_s[:, :, 1] -= min_y 
-    
-    # tset_s[:, :, 0] += I_1.shape[1]//2
-    # tset_s[:, :, 1] += I_1.shape[0]//2
+    tset_s[:, :, 1] -= min_y
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
         # find the affine transformations which send the triangles in each image to the composed location
@@ -221,12 +218,14 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         # find the mask for the triangle
         local_mask = cv.drawContours(0 * local_mask.copy(), [t_s.astype(np.int64)], -1, (255, 255, 255), -1)
 
+
         n = normal_map[tuple(t_i)]
-        s_1 = (0.01 - min(5*n.dot(v_1), 0))
-        s_2 = (0.01 - min(5*n.dot(v_2), 0))
+        s_1 = (0.01 - min(n.dot(v_1), 0))
+        s_2 = (0.01 - min(n.dot(v_2), 0))
         S = s_1 + s_2
         s_1 = s_1 / S
         s_2 = s_2 / S
+
 
         mix = cv.addWeighted(
             cv.warpAffine(I_1.copy(), S_1, dim), s_1,
@@ -234,14 +233,15 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
             0
         )
 
-        I_s |= local_mask & mix
+        I_s |= local_mask & mix & ~global_mask
+        global_mask |= local_mask
         total_mask = np.asarray(local_mask).astype(bool) | total_mask.astype(bool)
 
     
     if save:
         np.save(f'output/occlusion_mask', local_mask)
         
-        cv.imwrite(f'output/occlusion_0.5_newmix3thresh_{s:.2f}.jpg', I_s)
+        cv.imwrite(f'output/side_by_side_new_blending{s:.2f}.jpg', I_s)
 
     return I_s.copy()
 

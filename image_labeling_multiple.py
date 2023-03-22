@@ -64,12 +64,12 @@ def main(images):
 if __name__ == "__main__":
     # reading the image
     images = [
-        'data/torstein/left.jpg',
-        'data/torstein/front.jpg',
-        'data/torstein/right.jpg',
+        'data/torstein_180/20230316_163322.jpg',
+        'data/torstein_180/20230316_163325.jpg',
+        'data/torstein_180/20230316_163329.jpg',
     ]
 
     data = main(images)
 
     if data:
-        json.dump(data, open('data/manual_multiple.json', 'w'))
+        json.dump(data, open('data/manual_multiple_2.json', 'w'))

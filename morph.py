@@ -268,7 +268,7 @@ def generate_warping(s = 0.5, use_prewarp = True, save = True, calib=False):
     # draw the final image
     I_s = cv.warpPerspective(I_s, H_s, dim_1)
     if save:
-        cv.imwrite(f'output/image{s:.2f}.jpg', I_s)
+        cv.imwrite(f'output/manual_0_5_baseline{s:.2f}.jpg', I_s)
     return I_s.copy()
 
 
@@ -281,10 +281,12 @@ if __name__ == '__main__':
         frames += [ generate_mona(s, use_prewarp = False, save = False, calibrated=False) ]
     frames += frames[::-1]
     '''
-    #frame = generate_warping(0.5, use_prewarp=True, calib=True)
+    frame = generate_manual(0.5, use_prewarp=True, calibrated=True)
+    '''
     frames = []
     for s in [0.5]:
         frames += [ generate_manual(s, use_prewarp=False, save=True, calibrated=True) ]
     frames += frames[::-1]
     
     utils.create_gif('output/manual.gif', frames)
+    '''

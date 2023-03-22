@@ -47,10 +47,17 @@ def click_event_2(event, x, y, flags, params):
 # driver function
 if __name__ == "__main__":
     # reading the image
-    image_1 = 'data/torstein/left.jpg'
-    image_2 = 'data/torstein/right.jpg'
+    '''
+    image_1 = 'data/torstein_180/20230316_163325.jpg'
+    image_2 = 'data/torstein_180/20230316_163329.jpg'
     img_1 = cv2.imread(image_1, 1)
     img_2 = cv2.imread(image_2, 1)
+    '''
+    image_1 = 'data/torstein_180/20230316_163352.jpg'
+    image_2 = 'data/torstein_180/20230316_163355.jpg'
+    img_1 = cv2.imread(image_1, 1)
+    img_2 = cv2.imread(image_2, 1)
+
 
     # displaying the image
     finished_labeling = False
@@ -85,7 +92,7 @@ if __name__ == "__main__":
         cv2.destroyAllWindows()
         clicked = False
     cv2.destroyAllWindows()
-    filename="data/manual.json"
+    filename="data/manual_2.json"
 
     print(f"Saving labeling with {len(yshared_coordinates_1)} shared keys and {len(nshared_coordinates_1)} non-shared keys to {filename}")
 
