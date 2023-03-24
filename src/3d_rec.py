@@ -70,9 +70,15 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale)
     
     
-    f_1 = homogenize_array(f_1)
-    f_2 = homogenize_array(f_2)
+    W, H = dim
+    print(W, H)
+    # f_1 = homogenize_array(f_1)
+    # f_2 = homogenize_array(f_2)
 
+    f_1 = find_face(I_1)
+    f_2 = find_face(I_2)
+    print(f_1[0], f_1[16], f_1[9])
+    #plot_landmarks(I_1, f_1)
     f_count = len(f_1)
 
     # find triangulation
@@ -153,7 +159,7 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     M_s = K@RT_s
     #M_s = s * M_1 + (1 - s) * M_2
     f_s = apply_projection(M_s, P)[:, :2]
-
+    f_s_old = f_s.copy()
 
     #geo_utils.plot_tris_3d_norm(P[:,:3], normal_map, delu)
     #plt.quiver(*c_1, *0.1*v_1, color=(0.3, 0.7, 0.3))
@@ -209,15 +215,20 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     min_x = tset_s[:, :, 0].min()
     min_y = tset_s[:, :, 1].min()
 
-    tset_s[:, :, 0] -= min_x#-200
-    tset_s[:, :, 1] -= min_y#-200
-    # f_0 = np.array([
-    #     [ 0, 0, 1 ],
-    #     [ dim[0], 0, 1 ],
-    #     [ 0, dim[1], 1 ],
-    #     [ dim[0], dim[1], 1 ],
-    # ])
-    # H_s = cv.getPerspectiveTransform(f_s[-4:,:2].astype(np.float32), f_0[:,:2].astype(np.float32))
+    # tset_s[:, :, 0] -= min_x#-200
+    # tset_s[:, :, 1] -= min_y#-200
+
+    
+    f_0 = np.array([
+         [W//2-300, H//2-200],
+        [W//2+300, H//2-200],
+        [W//2, H//2+200 ]
+    ]).astype(np.float32)
+    pts = np.vstack([f_s_old[0, :2], f_s_old[16, :2], f_s_old[8, :2]]).astype(np.float32)
+    
+    print(pts)
+    print(f_0)
+    H_s = cv.getAffineTransform(pts, f_0[:,:2])
 
     for t_1, t_2, t_s, t_i in zip(tset_1, tset_2, tset_s, delu):
         # find the affine transformations which send the triangles in each image to the composed location
@@ -246,8 +257,17 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
         I_s |= local_mask & mix & ~global_mask
         global_mask |= local_mask
 
-    # I_s = cv.warpPerspective(I_s, H_s, dim)
-
+    # color = (255, 0, 0)
+    
+    # Line thickness of 2 px
+    # thickness = 2
+    # for i, pt in enumerate(pts):
+    #     I_s = cv.putText(I_s, str(i), pt.astype(int), 
+    #                          fontFace = cv.FONT_HERSHEY_SIMPLEX, color=color, thickness=thickness, fontScale=2)
+    
+    I_s = cv.warpAffine(I_s, H_s, dim)
+    #cv.imshow("img", I_s)
+    #cv.waitKey(0)
     
     if save:
         np.save(f'output/occlusion_mask', global_mask)
@@ -257,7 +277,13 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     return I_s.copy()
 
 if __name__ == "__main__":
-    I = generate_manual(s=0.5, scale=0.2, save=True, subdivide=True)
-    rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
-    plt.imshow(rgb)
-    plt.show()
+    # I = generate_manual(s=0.5, scale=0.1, save=True, subdivide=True)
+    # rgb = cv.cvtColor(I, cv.COLOR_BGR2RGB)
+    # plt.imshow(rgb)
+    # plt.show()
+    frames = []
+    for s in tqdm(np.linspace(0, 1, 10)):
+        frames += [ generate_manual(s, scale=0.3, save=True) ]
+    frames += frames[::-1]
+    
+    utils.create_gif('output/manual.gif', frames)

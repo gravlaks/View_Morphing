@@ -102,8 +102,20 @@ def find_face(im):
 
 
 def plot_landmarks(img, landmarks):
-    for landmark in landmarks:
+    # org
+    
+   
+    
+    # Blue color in BGR
+    color = (255, 0, 0)
+    
+    # Line thickness of 2 px
+    thickness = 2
+    for i, landmark in enumerate(landmarks):
         img = cv.circle(img, [int(landmark[0]), int(landmark[1])], 5, (255, 0, 0))
+        if i in [0, 1, 9, 16]:
+            img = cv.putText(img, str(i), [int(landmark[0]), int(landmark[1])], 
+                             fontFace = cv.FONT_HERSHEY_SIMPLEX, color=color, thickness=thickness, fontScale=2)
     plt.imshow(img)
     plt.show()
 
