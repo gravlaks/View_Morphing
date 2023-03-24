@@ -65,18 +65,22 @@ def get_normal_map_from_tris(P, tris, ref):
 def create_RT(phi, theta, z):
     pass
 
-def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
+def generate(s = 0.5, scale = 1, save = True, subdivide = True, auto=True):
     # load images
     I_1, f_1, n_1, I_2, f_2, n_2, dim = load_manual(scale)
     
     
     W, H = dim
     print(W, H)
-    # f_1 = homogenize_array(f_1)
-    # f_2 = homogenize_array(f_2)
 
-    f_1 = find_face(I_1)
-    f_2 = find_face(I_2)
+    if auto:
+        f_1 = find_face(I_1)
+        f_2 = find_face(I_2)
+    else:
+        f_1 = homogenize_array(f_1)
+        f_2 = homogenize_array(f_2)
+
+    
     print(f_1[0], f_1[16], f_1[9])
     #plot_landmarks(I_1, f_1)
     f_count = len(f_1)
@@ -214,15 +218,14 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     
     min_x = tset_s[:, :, 0].min()
     min_y = tset_s[:, :, 1].min()
+    if not auto:
+        tset_s[:, :, 0] -= min_x#-200
+        tset_s[:, :, 1] -= min_y#-200
 
-    # tset_s[:, :, 0] -= min_x#-200
-    # tset_s[:, :, 1] -= min_y#-200
-
-    
     f_0 = np.array([
-         [W//2-300, H//2-200],
-        [W//2+300, H//2-200],
-        [W//2, H//2+200 ]
+         [W//2-W//4, H//2-H//5],
+        [W//2+W//4, H//2-H//5],
+        [W//2, H//2+H//5 ]
     ]).astype(np.float32)
     pts = np.vstack([f_s_old[0, :2], f_s_old[16, :2], f_s_old[8, :2]]).astype(np.float32)
     
@@ -264,8 +267,8 @@ def generate_manual(s = 0.5, scale = 1, save = True, subdivide = True):
     # for i, pt in enumerate(pts):
     #     I_s = cv.putText(I_s, str(i), pt.astype(int), 
     #                          fontFace = cv.FONT_HERSHEY_SIMPLEX, color=color, thickness=thickness, fontScale=2)
-    
-    I_s = cv.warpAffine(I_s, H_s, dim)
+    if auto: 
+        I_s = cv.warpAffine(I_s, H_s, dim)
     #cv.imshow("img", I_s)
     #cv.waitKey(0)
     
@@ -283,7 +286,7 @@ if __name__ == "__main__":
     # plt.show()
     frames = []
     for s in tqdm(np.linspace(0, 1, 10)):
-        frames += [ generate_manual(s, scale=0.3, save=True) ]
+        frames += [ generate(s, scale=0.3, save=True) ]
     frames += frames[::-1]
     
     utils.create_gif('output/manual.gif', frames)
